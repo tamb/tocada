@@ -98,8 +98,12 @@
       return new Date().getTime();
     },
     sendEvent = function (elm, eventName, originalEvent, tocada) {
-      var customEvent = doc.createEvent("Event");
-      customEvent.originalEvent = originalEvent;
+      var customEvent = new CustomEvent(eventName, {
+        detail: {
+          originalEvent,
+          ...tocada,
+        },
+      });
       tocada = tocada || { endingCoords: {} };
       tocada.endingCoords.x = currX;
       tocada.endingCoords.y = currY;
@@ -111,12 +115,7 @@
       }
 
       // addEventListener
-      if (customEvent.initEvent) {
-        for (var key in tocada) {
-          customEvent[key] = tocada[key];
-        }
-
-        customEvent.initEvent(eventName, true, true);
+      if (!defaults.useJquery) {
         elm.dispatchEvent(customEvent);
       }
 
@@ -176,7 +175,7 @@
           x: null,
           y: null,
         },
-        absoluteDistance: null,
+        distance: {},
         velocity: null,
       };
 
@@ -237,9 +236,9 @@
             distance: {
               x: Math.abs(deltaX),
               y: Math.abs(deltaY),
+              absolute: absoluteDistance,
             },
             endingElement: document.elementFromPoint(currX, currY),
-            absoluteDistance,
             touchDuration,
             velocity: absoluteDistance / (now - tocada.touchStartTime),
             touchEndTime: now,
