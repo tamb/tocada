@@ -1,6 +1,6 @@
 # tocada.js
 
-A fork of the wonderful Tocca.js library, but with **more** features. Super lightweight script ( ~1kB ) to detect via Javascript events like 'tap' 'longtap' 'dbltap' 'swipeup' 'swipedown' 'swipeleft' 'swiperight' on any kind of device.
+A fork of the wonderful Tocca.js library. But we use CustomEvents. You also get added event information like `velocity`, `endingElement`, `touchDuration`
 
 ## Installation
 
@@ -15,7 +15,7 @@ $ npm install tocada
 Include the script into your page:
 
 ```html
-<script src="path/to/tocada.min.js"></script>
+<script src="path/to/script.js"></script>
 ```
 
 Once you have included tocada.js you will be able to catch all the new events:
@@ -42,29 +42,26 @@ $(elm).on("swipeup", function (e, data) {});
 $(elm).on("swipedown", function (e, data) {});
 ```
 
-Tocca.js supports also the inline events if you are using Riot.js!
-
-```html
-<div ontap="function(e){})"></div>
-<div ondbltap="function(e){})"></div>
-<div onlongtap="function(e){})"></div>
-<div onswipeleft="function(e){})"></div>
-<div onswiperight="function(e){})"></div>
-<div onswipeup="function(e){})"></div>
-<div onswipedown="function(e){})"></div>
-```
-
 ## API and Examples
 
-Anytime you will use a Tocca.js event the callback function will receive a special event object containing the following properties
+Anytime you will use a Tocada event the callback function will receive a special `event` object with with a `detail` object containing the following properties
 
-- <code>x</code> { Int }: latest x position of pointer at the end of the event
-- <code>y</code> { Int }: latest y position of pointer at the end of the event
+- <code>endingCoords</code> { Object }: the x and y coordinates of the touch event
+- <code>endingCoords.x</code> { Int }: latest x position of pointer at the end of the event
+- <code>endingCoords.y</code> { Int }: latest y position of pointer at the end of the event
 - <code>originalEvent</code> { Object }: the original javascript native event that has been triggered
 - <code>endingElement</code>{HTMLElement}: the last element the touch sensor picked up on as determined by the touch coordinates
 - <code>distance</code>: this property is available only for the swipe events
 - <code>distance.x</code> { Int }: the x absolute difference between the beginning and the end of the swipe gesture
 - <code>distance.y</code> { Int }: the y absolute difference between the beginning and the end of the swipe gesture
+- <code>distance.absolute</code> { Int/Float }: the calculated absolute distance from point to point
+- <code>startingCoords</code> { Object }: the starting coordinates of the initiating touch event
+- <code>startingCoords.x</code>
+- <code>startingCoords.y</code>
+- <code>touchDuration</code> { Int }: the length of time in MS for the touch event
+- <code>velocity</code> { Float }: the velocity in pixels per millisecond
+- <code>touchStartTime</code> { Int }: time of event start in milliseconds
+- <code>touchEndTime</code> { Int }: time of event end in milliseconds
 
 Examples:
 
@@ -94,7 +91,7 @@ $(elm).on("swipeup", function (e, data) {
 });
 ```
 
-Anyway you can combine Tocca.js with the default javascript touch events:
+Anyway you can combine Tocada with the default javascript touch events:
 
 - <code>touchmove</code>
 - <code>touchstart</code>
@@ -145,16 +142,12 @@ window.tocada({
   namespace: 'myspace',
 })
 
-console.log(window.tocca2()) // will always return the current internal options
+console.log(window.tocada()) // will always return the current internal options
 ```
 
 ## Browser Support
 
-Actually the script has been tested on all the modern browsers but it need a better testing phase over several platforms: Chrome 29+ Firefox 23+ Opera 12+ Safari 5+
-
-It works on mobile/tablet browsers and on desktop browsers as well.
-
-On the old browsers all the Tocca.js events cannot be triggered.
+This requires a CustomEvent polyfill for older browsers.
 
 ## What does Tocada mean?!
 

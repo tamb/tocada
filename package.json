@@ -8,8 +8,7 @@
   },
   "scripts": {
     "safe-publish": "npm run prepublish && npm publish",
-    "prepublish": "npm run test && npm run build",
-    "test": "karma start test/karma.conf.js",
+    "prepublish": "npm run build",
     "build": "webpack --mode=production"
   },
   "repository": {
