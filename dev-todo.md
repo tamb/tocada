@@ -1,2 +1,3 @@
-* calculate velocity
-* calculate angle of swipe
+- ~~calculate velocity~~
+- ~~calculate angle of swipe~~
+- write Jest tests
