@@ -33,7 +33,7 @@
   if (typeof doc.createEvent !== "function") return false; // no tap events here
   // helpers
 
-  var moreData = {};
+  var tocada = {};
 
   var pointerEvent = function (type) {
       var lo = type.toLowerCase(),
@@ -97,23 +97,23 @@
     getTimestamp = function () {
       return new Date().getTime();
     },
-    sendEvent = function (elm, eventName, originalEvent, data) {
+    sendEvent = function (elm, eventName, originalEvent, tocada) {
       var customEvent = doc.createEvent("Event");
       customEvent.originalEvent = originalEvent;
-      data = data || { distance: null };
-      data.x = currX;
-      data.y = currY;
+      tocada = tocada || { endingCoords: {} };
+      tocada.endingCoords.x = currX;
+      tocada.endingCoords.y = currY;
 
-      // jquery
+      // jquerys
       if (defaults.useJquery) {
         customEvent = jQuery.Event(eventName, { originalEvent: originalEvent });
-        jQuery(elm).trigger(customEvent, data);
+        jQuery(elm).trigger(customEvent, tocada);
       }
 
       // addEventListener
       if (customEvent.initEvent) {
-        for (var key in data) {
-          customEvent[key] = data[key];
+        for (var key in tocada) {
+          customEvent[key] = tocada[key];
         }
 
         customEvent.initEvent(eventName, true, true);
@@ -166,16 +166,22 @@
       // caching the current y
       cachedY = currY = pointer.pageY;
 
-      moreData = {
+      tocada = {
         startingCoords: {
           x: cachedX,
           y: cachedY,
         },
         touchStartTime: startTimeStamp,
+        endingCoords: {
+          x: null,
+          y: null,
+        },
+        absoluteDistance: null,
+        velocity: null,
       };
 
       longtapTimer = setTimeout(function () {
-        sendEvent(e.target, "longtap", e, moreData);
+        sendEvent(e.target, "longtap", e, tocada);
         target = e.target;
       }, defaults.longtapThreshold);
 
@@ -205,7 +211,7 @@
         Math.pow(deltaX, 2) + Math.pow(deltaY, 2)
       );
 
-      const touchDuration = now - moreData.touchStartTime;
+      const touchDuration = now - tocada.touchStartTime;
       // clear the previous timer if it was set
       clearTimeout(dblTapTimer);
       // kill the long tap timer
@@ -226,18 +232,19 @@
       if (eventsArr.length) {
         for (var i = 0; i < eventsArr.length; i++) {
           var eventName = eventsArr[i];
-          sendEvent(e.target, eventName, e, {
+          tocada = {
+            ...tocada,
             distance: {
               x: Math.abs(deltaX),
               y: Math.abs(deltaY),
             },
-            ...moreData,
             endingElement: document.elementFromPoint(currX, currY),
             absoluteDistance,
             touchDuration,
-            velocity: absoluteDistance / (now - moreData.touchStartTime),
+            velocity: absoluteDistance / (now - tocada.touchStartTime),
             touchEndTime: now,
-          });
+          };
+          sendEvent(e.target, eventName, e, tocada);
         }
         // reset the tap counter
         tapNum = 0;
@@ -306,7 +313,7 @@
   );
 
   // Configure the tocca default options at any time
-  win.tocca2 = function (options) {
+  win.tocada = function (options) {
     for (var opt in options) {
       defaults[opt] = options[opt];
     }
