@@ -1,0 +1,40 @@
+<html>
+  <head>
+    <title>Tocca.js</title>
+    <style>
+      #test {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        margin: -200px 0 0 -200px;
+        width: 500px;
+        height: 500px;
+        color: white;
+        background: black;
+        cursor: pointer;
+      }
+      dl {
+        color: gray;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Tocca.js</h1>
+    <h2>Please check also your console</h2>
+    <dl id="data">
+      <dt><strong>Event Name</strong></dt>
+      <dd id="eventName"></dd>
+      <dt>Event x</dt>
+      <dd id="currX"></dd>
+      <dt>Event y</dt>
+      <dd id="currY"></dd>
+      <dt>Swipe Event distance x</dt>
+      <dd id="distanceX"></dd>
+      <dt>Swipe Event distance y</dt>
+      <dd id="distanceY"></dd>
+    </dl>
+    <div id="test"></div>
+    <script src="bind.polyfill.js"></script>
+    <script defer src="./dist/main.js"></script>
+  </body>
+</html>
