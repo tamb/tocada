@@ -1,6 +1,6 @@
 {
   "name": "tocada",
-  "version": "0.0.0-alpha.1",
+  "version": "0.0.0-alpha.2",
   "description": "Touch events with ease! (A fork of the wonderful Tocca.js library, but with more features).",
   "main": "dist/main.js",
   "directories": {

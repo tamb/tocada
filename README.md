@@ -151,4 +151,4 @@ This requires a CustomEvent polyfill for older browsers.
 
 ## What does Tocada mean?!
 
-"Tocada" is Spanish for "touch"
+"Tocada" is Spanish for "touched"
