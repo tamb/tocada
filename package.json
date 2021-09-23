@@ -8,7 +8,7 @@
   },
   "scripts": {
     "safe-publish": "npm run prepublish && npm publish",
-    "prepublish": "npm run build",
+    "prepublish": "npm run test && npm run build",
     "test": "jest",
     "build": "webpack --mode=production"
   },
