@@ -164,7 +164,7 @@
 
     if (!isTheSameFingerId(e) || isMultipleTouches(e)) return;
     const startTimeStamp = getTimestamp();
-    const pointerId = e.pointerId;
+    pointerId = e.pointerId;
 
     // it looks like it was a touch event!
     if (e.type !== "mousedown") wasTouch = true;
