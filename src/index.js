@@ -113,6 +113,7 @@
   }
   function sendEvent(elm, eventName, originalEvent, tocada) {
     var customEvent = new CustomEvent(eventName, {
+      bubbles: true,
       detail: {
         originalEvent,
         ...tocada,
