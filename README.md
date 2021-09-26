@@ -50,6 +50,7 @@ Anytime you will use a Tocada event the callback function will receive a special
 - <code>endingCoords.x</code> { Int }: latest x position of pointer at the end of the event
 - <code>endingCoords.y</code> { Int }: latest y position of pointer at the end of the event
 - <code>originalEvent</code> { Object }: the original javascript native event that has been triggered
+- <code>startingElement</code> {HTMLElement}: the original target element of the touch event
 - <code>endingElement</code>{HTMLElement}: the last element the touch sensor picked up on as determined by the touch coordinates
 - <code>distance</code>: this property is available only for the swipe events
 - <code>distance.x</code> { Int }: the x absolute difference between the beginning and the end of the swipe gesture

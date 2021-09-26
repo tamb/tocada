@@ -181,6 +181,7 @@
     cachedY = currY = pointer.pageY;
 
     tocada = {
+      startingElement: e.target,
       startingCoords: {
         x: cachedX,
         y: cachedY,
