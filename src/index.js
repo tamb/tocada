@@ -47,6 +47,7 @@
   var target;
   var dblTapTimer;
   var longtapTimer;
+  var prevTimestamp;
 
   const defaults = {
     useJquery: !win.IGNORE_JQUERY && typeof jQuery !== "undefined",
@@ -260,6 +261,10 @@
           touchEndTime: now,
         };
         sendEvent(e.target, eventName, e, tocada);
+        if (prevTimestamp !== tocada.touchStartTime) {
+          sendEvent(e.target, `${defaults.namespace}swipe`, e, tocada);
+        }
+        prevTimestamp = tocada.touchStartTime;
       }
       // reset the tap counter
       tapNum = 0;

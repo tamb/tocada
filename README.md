@@ -28,7 +28,12 @@ elm.addEventListener("swipeleft", function (e) {});
 elm.addEventListener("swiperight", function (e) {});
 elm.addEventListener("swipeup", function (e) {});
 elm.addEventListener("swipedown", function (e) {});
+elm.addEventListener("swipe", function (e) {}); // fires once per every initiating swipe touch
 ```
+
+**note**
+The "swipe" event will fire after all types of swipe in case multiple types of swipe are triggered
+from the same motion
 
 It works with jQuery as well:
 
@@ -40,6 +45,7 @@ $(elm).on("swipeleft", function (e, data) {});
 $(elm).on("swiperight", function (e, data) {});
 $(elm).on("swipeup", function (e, data) {});
 $(elm).on("swipedown", function (e, data) {});
+$(elm).on("swipe", function (e, data) {});
 ```
 
 ## API and Examples
