@@ -1,6 +1,6 @@
-import tocca2 from "tocca-2";
-window.tocca2({
-  namespace: "tocca2:",
+import tocada from "tocada";
+window.tocada({
+  namespace: "tocada:",
 });
 var $ = document.querySelector.bind(document),
   eventName = $("#eventName"),
@@ -12,14 +12,15 @@ var $ = document.querySelector.bind(document),
   preventDefault = function (e) {
     e.preventDefault();
   };
-test.addEventListener("tocca2:tap", updateHtml);
-test.addEventListener("tocca2:dbltap", updateHtml);
-test.addEventListener("tocca2:longtap", updateHtml);
-test.addEventListener("tocca2:longtap", updateHtml);
-test.addEventListener("tocca2:swipeup", updateHtml);
-test.addEventListener("tocca2:swipedown", updateHtml);
-test.addEventListener("tocca2:swipeleft", updateHtml);
-test.addEventListener("tocca2:swiperight", updateHtml);
+test.addEventListener("tocada:tap", updateHtml);
+test.addEventListener("tocada:dbltap", updateHtml);
+test.addEventListener("tocada:longtap", updateHtml);
+test.addEventListener("tocada:longtap", updateHtml);
+test.addEventListener("tocada:swipeup", updateHtml);
+test.addEventListener("tocada:swipedown", updateHtml);
+test.addEventListener("tocada:swipeleft", updateHtml);
+test.addEventListener("tocada:swiperight", updateHtml);
+test.addEventListener("tocada:swipe", updateHtml);
 test.addEventListener("touchmove", preventDefault);
 test.addEventListener("touchstart", preventDefault);
 test.addEventListener("touchend", preventDefault);
