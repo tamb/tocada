@@ -32,8 +32,8 @@ elm.addEventListener("swipe", function (e) {}); // fires once per every initiati
 ```
 
 **note**
-The "swipe" event will fire after all types of swipe in case multiple types of swipe are triggered
-from the same motion
+The "swipe" event will fire after all types of swipe. In the case multiple types of swipe are triggered
+from the same motion. "swipe" will be fired after the first type of swipe event.
 
 It works with jQuery as well:
 
@@ -130,7 +130,7 @@ Whenever you want to configure the plugin events settings you can do that simply
     LONG_TAP_THRESHOLD = 1000, // range of time after which a longtap event could be detected
     TAP_THRESHOLD = 150, // range of time in which a tap event could be detected
     TAP_PRECISION = 60 / 2, // default value (touch events boundaries)
-    JUST_ON_TOUCH_DEVICES = false, // default value ( decide whether you want to use the Tocca.js events only on the touch devices )
+    JUST_ON_TOUCH_DEVICES = false, // default value ( decide whether you want to use the tocada events only on the touch devices )
     IGNORE_JQUERY = false, // default value ( will not use jQuery events, even if jQuery is detected )
     NAMESPACE = ""; // prepend a namespace to the events to avoid conflict with future native implementations
 </script>
@@ -146,7 +146,7 @@ window.tocada({
   longtapThreshold: your new option
   tapPrecision: your new option
   justTouchEvents: your new option,
-  namespace: 'myspace',
+  namespace: your new option,
 })
 
 console.log(window.tocada()) // will always return the current internal options
