@@ -197,7 +197,7 @@
     };
 
     longtapTimer = setTimeout(function () {
-      sendEvent(e.target, "longtap", e, tocada);
+      sendEvent(e.target, defaults.namespace+"longtap", e, tocada);
       target = e.target;
     }, defaults.longtapThreshold);
 

@@ -2,16 +2,6 @@ import tocada from "tocada";
 window.tocada({
   namespace: "tocada:",
 });
-var $ = document.querySelector.bind(document),
-  eventName = $("#eventName"),
-  currX = $("#currX"),
-  currY = $("#currY"),
-  distanceX = $("#distanceX"),
-  distanceY = $("#distanceY"),
-  test = $("#test"),
-  preventDefault = function (e) {
-    e.preventDefault();
-  };
 test.addEventListener("tocada:tap", updateHtml);
 test.addEventListener("tocada:dbltap", updateHtml);
 test.addEventListener("tocada:longtap", updateHtml);
@@ -27,9 +17,12 @@ test.addEventListener("touchend", preventDefault);
 function updateHtml(e) {
   console.log(e);
   e.preventDefault();
-  eventName.innerHTML = test.innerHTML = e.type;
-  currX.innerHTML = e.x;
-  currY.innerHTML = e.y;
-  distanceX.innerHTML = e.distance ? e.distance.x : "not available";
-  distanceY.innerHTML = e.distance ? e.distance.y : "not available";
+  var code = document.querySelector("code");
+  code.textContent = `
+  ${JSON.stringify(e.detail, null, 2)}
+  ___________________________________
+
+  ${code.textContent}
+ 
+  `;
 }
