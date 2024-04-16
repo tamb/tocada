@@ -66,7 +66,7 @@ export default class Tocada {
     this.element.addEventListener("touchend", this.handleTouchEnd.bind(this), false);
   }
 
-  private handleTouchStart = (event: TouchEvent) => {
+  private handleTouchStart(event: TouchEvent) {
     // FIXME - pinch and spread are not firing
     const touch = event.touches[0];
     this.startX = touch.clientX;
@@ -82,7 +82,7 @@ export default class Tocada {
         touch1.clientY - touch2.clientY
       );
     }
-  };
+  }
 
   private handleTouchMove(event: TouchEvent) {
     // Prevent default behavior to prevent scrolling

@@ -7,18 +7,6 @@ export default class Tocada {
         this.endPressure = 0;
         this.pinchStartDistance = 0;
         this.eventPrefix = "";
-        this.handleTouchStart = (event) => {
-            const touch = event.touches[0];
-            this.startX = touch.clientX;
-            this.startY = touch.clientY;
-            this.startTime = Date.now();
-            this.startPressure = touch.force || 0;
-            if (event.touches.length === 2) {
-                const touch1 = event.touches[0];
-                const touch2 = event.touches[1];
-                this.pinchStartDistance = Math.hypot(touch1.clientX - touch2.clientX, touch1.clientY - touch2.clientY);
-            }
-        };
         this.element =
             typeof queryStringOrElement === "string"
                 ? document.querySelector(queryStringOrElement)
@@ -37,6 +25,19 @@ export default class Tocada {
         this.element.addEventListener("touchstart", this.handleTouchStart.bind(this), false);
         this.element.addEventListener("touchmove", this.handleTouchMove.bind(this), false);
         this.element.addEventListener("touchend", this.handleTouchEnd.bind(this), false);
+    }
+    handleTouchStart(event) {
+        // FIXME - pinch and spread are not firing
+        const touch = event.touches[0];
+        this.startX = touch.clientX;
+        this.startY = touch.clientY;
+        this.startTime = Date.now();
+        this.startPressure = touch.force || 0;
+        if (event.touches.length === 2) {
+            const touch1 = event.touches[0];
+            const touch2 = event.touches[1];
+            this.pinchStartDistance = Math.hypot(touch1.clientX - touch2.clientX, touch1.clientY - touch2.clientY);
+        }
     }
     handleTouchMove(event) {
         // Prevent default behavior to prevent scrolling
@@ -58,6 +59,7 @@ export default class Tocada {
             const xDirection = deltaX > 0 ? "swiperight" : "swipeleft";
             const yDirection = deltaY > 0 ? "swipedown" : "swipeup";
             // TODO - doublecheck this logic
+            // FIXME - this logic (above and below) is busted
             const angle = Math.atan2(deltaY, deltaX);
             const gestureType = deltaX > deltaY ? xDirection : yDirection;
             // always dispatch a swipe event

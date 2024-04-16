@@ -10,7 +10,7 @@
     "safe-publish": "npm run prepublish && npm publish",
     "prepublish": "npm run build",
     "build": "tsc",
-    "serve": "bunx serve demo/index.html"
+    "serve": "bunx serve ./"
   },
   "repository": {
     "type": "git",
