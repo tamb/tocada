@@ -9,12 +9,11 @@ export default class Tocada {
         this.startingElement = null;
         this.touchedElements = [];
         this.eventPrefix = "";
-        this.pinchStartDistance = 0;
+        this.gestureStartDistance = 0;
+        this.latestGestureDistance = 0;
         this.isMultiTouch = false;
-        this.isTouching = false;
         this.activeTouches = 0;
         this.touchCount = 0;
-        this.gestureTouches = [];
         this.element =
             typeof queryStringOrElement === "string"
                 ? document.querySelector(queryStringOrElement)
@@ -26,8 +25,6 @@ export default class Tocada {
         const { thresholds = {}, eventPrefix = "" } = options;
         this.thresholds = {
             swipeThreshold: thresholds.swipeThreshold || 50,
-            pinchThreshold: thresholds.pinchThreshold || 100,
-            spreadThreshold: thresholds.spreadThreshold || 100,
         };
         this.eventPrefix = eventPrefix;
         this.element.addEventListener("touchstart", this.handleTouchStart.bind(this), false);
@@ -39,11 +36,10 @@ export default class Tocada {
         this.touchCount = event.touches.length;
         if (this.activeTouches > 1) {
             this.isMultiTouch = true;
-            this.isTouching = true;
+            this.gestureStartDistance = this.getDistanceBetweenTouchPoints(event.touches);
             this.handleGestureStart(event);
         }
         else {
-            this.isTouching = true;
             this.isMultiTouch = false;
             this.handleSwipeStart(event);
         }
@@ -56,6 +52,9 @@ export default class Tocada {
         const element = document.elementFromPoint(x, y);
         if (element)
             this.touchedElements.push(element);
+        if (this.isMultiTouch) {
+            this.handleGestureMove(event);
+        }
     }
     handleTouchEnd(event) {
         if (this.activeTouches >= 2) {
@@ -94,7 +93,6 @@ export default class Tocada {
             this.endPressure = touch.force || 0;
             const avgPressure = (this.startPressure + this.endPressure) / 2;
             const endingElement = document.elementFromPoint(touch.clientX, touch.clientY);
-            // Only fire swipe event if touches are different from gesture touches
             const detail = {
                 velocityX,
                 velocityY,
@@ -121,12 +119,25 @@ export default class Tocada {
     }
     handleGestureStart(event) {
         this.isMultiTouch = true;
-        this.gestureTouches = Array.from(event.touches);
+    }
+    handleGestureMove(event) {
+        this.latestGestureDistance = this.getDistanceBetweenTouchPoints(event.touches);
     }
     handleGestureEnd(event) {
         this.isMultiTouch = false;
-        this.gestureTouches = [];
         this.dispatchGestureEvent("gesture");
+        if (this.latestGestureDistance < this.gestureStartDistance) {
+            this.dispatchGestureEvent("pinch");
+        }
+        else {
+            this.dispatchGestureEvent("spread");
+        }
+        this.latestGestureDistance = 0;
+    }
+    getDistanceBetweenTouchPoints(touches) {
+        const distanceX = touches[0].clientX - touches[1].clientX;
+        const distanceY = touches[0].clientY - touches[1].clientY;
+        return Math.hypot(distanceX, distanceY);
     }
     dispatchSwipeEvent(gestureType, details) {
         const eventName = this.eventPrefix + gestureType;

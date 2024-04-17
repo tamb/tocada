@@ -4,15 +4,13 @@ type GestureType =
   | "swipedown"
   | "swipeleft"
   | "swiperight"
-  | "pinch"
-  | "spread"
+  | "pinch" // TODO: add pinch support
+  | "spread" // TODO: add spread support
   | "gesture";
 
 interface TocadaOptions {
   thresholds?: {
     swipeThreshold?: number;
-    pinchThreshold?: number;
-    spreadThreshold?: number;
   };
   eventPrefix?: string;
 }
@@ -49,18 +47,14 @@ export default class Tocada {
   // options
   private thresholds!: {
     swipeThreshold: number;
-    pinchThreshold: number;
-    spreadThreshold: number;
   };
   private eventPrefix: string = "";
 
-  private pinchStartDistance: number = 0;
+  private gestureStartDistance: number = 0;
+  private latestGestureDistance: number = 0;
   private isMultiTouch = false;
-  private isTouching = false;
   private activeTouches = 0;
   private touchCount = 0;
-
-  private gestureTouches: Touch[] = [];
 
   constructor(queryStringOrElement: string | HTMLElement, options: TocadaOptions = {}) {
     this.element =
@@ -75,8 +69,6 @@ export default class Tocada {
     const { thresholds = {}, eventPrefix = "" } = options;
     this.thresholds = {
       swipeThreshold: thresholds.swipeThreshold || 50,
-      pinchThreshold: thresholds.pinchThreshold || 100,
-      spreadThreshold: thresholds.spreadThreshold || 100,
     };
     this.eventPrefix = eventPrefix;
 
@@ -91,10 +83,9 @@ export default class Tocada {
 
     if (this.activeTouches > 1) {
       this.isMultiTouch = true;
-      this.isTouching = true;
+      this.gestureStartDistance = this.getDistanceBetweenTouchPoints(event.touches);
       this.handleGestureStart(event);
     } else {
-      this.isTouching = true;
       this.isMultiTouch = false;
       this.handleSwipeStart(event);
     }
@@ -107,6 +98,10 @@ export default class Tocada {
     const y = event.touches[0].clientY;
     const element = document.elementFromPoint(x, y) as HTMLElement;
     if (element) this.touchedElements.push(element);
+
+    if (this.isMultiTouch) {
+      this.handleGestureMove(event);
+    }
   }
 
   private handleTouchEnd(event: TouchEvent) {
@@ -181,13 +176,30 @@ export default class Tocada {
 
   private handleGestureStart(event: TouchEvent) {
     this.isMultiTouch = true;
-    this.gestureTouches = Array.from(event.touches);
+  }
+
+  private handleGestureMove(event: TouchEvent) {
+    this.latestGestureDistance = this.getDistanceBetweenTouchPoints(event.touches);
   }
 
   private handleGestureEnd(event: TouchEvent) {
     this.isMultiTouch = false;
-    this.gestureTouches = [];
+
     this.dispatchGestureEvent("gesture");
+
+    if (this.latestGestureDistance < this.gestureStartDistance) {
+      this.dispatchGestureEvent("pinch");
+    } else {
+      this.dispatchGestureEvent("spread");
+    }
+
+    this.latestGestureDistance = 0;
+  }
+
+  private getDistanceBetweenTouchPoints(touches: TouchEvent["changedTouches"]) {
+    const distanceX = touches[0].clientX - touches[1].clientX;
+    const distanceY = touches[0].clientY - touches[1].clientY;
+    return Math.hypot(distanceX, distanceY);
   }
 
   private dispatchSwipeEvent(gestureType: GestureType, details: SwipeEventDetails) {

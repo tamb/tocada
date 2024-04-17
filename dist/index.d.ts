@@ -1,8 +1,6 @@
 interface TocadaOptions {
     thresholds?: {
         swipeThreshold?: number;
-        pinchThreshold?: number;
-        spreadThreshold?: number;
     };
     eventPrefix?: string;
 }
@@ -17,12 +15,11 @@ export default class Tocada {
     private touchedElements;
     private thresholds;
     private eventPrefix;
-    private pinchStartDistance;
+    private gestureStartDistance;
+    private latestGestureDistance;
     private isMultiTouch;
-    private isTouching;
     private activeTouches;
     private touchCount;
-    private gestureTouches;
     constructor(queryStringOrElement: string | HTMLElement, options?: TocadaOptions);
     private handleTouchStart;
     private handleTouchMove;
@@ -30,7 +27,9 @@ export default class Tocada {
     private handleSwipeStart;
     private handleSwipeEnd;
     private handleGestureStart;
+    private handleGestureMove;
     private handleGestureEnd;
+    private getDistanceBetweenTouchPoints;
     private dispatchSwipeEvent;
     private dispatchGestureEvent;
 }
