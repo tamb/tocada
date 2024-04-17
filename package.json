@@ -1,7 +1,7 @@
 {
   "name": "tocada",
-  "version": "1.0.0-beta.6",
-  "description": "Touch events with ease! (A fork of the wonderful Tocca.js library, but with more features).",
+  "version": "2.0.0-alpha.1",
+  "description": "Touch events with ease! (Inspired by the wonderful Tocca.js library). Written in Typescript with love",
   "main": "dist/main.js",
   "directories": {
     "test": "test"
@@ -9,7 +9,10 @@
   "scripts": {
     "safe-publish": "npm run prepublish && npm publish",
     "prepublish": "npm run build",
-    "build": "webpack --mode=production"
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "serve": "bunx serve ./",
+    "dev": "concurrently \"bun run build:watch\" \"bun run serve\""
   },
   "repository": {
     "type": "git",
@@ -20,17 +23,29 @@
   "bugs": {
     "url": "https://github.com/tamb/tocada/issues"
   },
-  "devDependencies": {
-    "@babel/core": "^7.15.5",
-    "@babel/preset-env": "^7.15.6",
-    "babel-loader": "^8.2.2",
-    "webpack": "^5.53.0",
-    "webpack-cli": "^4.8.0"
-  },
   "homepage": "https://github.com/tamb/tocada.js",
   "keywords": [
     "touch",
     "events",
-    "mobile"
-  ]
+    "mobile",
+    "swipe",
+    "gesture",
+    "tap",
+    "dbltap",
+    "longtap",
+    "swipeleft",
+    "swiperight",
+    "swipeup",
+    "swipedown",
+    "swipecancel",
+    "velocity",
+    "pinch",
+    "spread",
+    "typescript"
+  ],
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "parcel": "^2.11.0",
+    "typescript": "^5.3.3"
+  }
 }

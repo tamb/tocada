@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+    />
+    <title>My Bootstrap Page</title>
+  </head>
+
+  <body>
+    <div class="container">
+      <div class="row">
+        <div id="touchArea" class="col-8 border" style="height: 50vh; background-color: lightblue">
+          <h1>Tocada</h1>
+          <p>Touch events with ease!</p>
+          <strong>Inspired by the wonderful Tocca.js library</strong>
+          <small>Written in Typescript with love</small>
+          <h2>Swipe around</h2>
+          <hr />
+        </div>
+        <div class="col-4">
+          <ol id="eventNames"></ol>
+          <div id="debug"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- <script type="module" src="/index.js"></script> -->
+
+    <script type="module">
+      import Tocada from "./dist/index.js";
+      console.log(Tocada);
+
+      const touchArea = document.getElementById("touchArea");
+      const debugEl = document.getElementById("debug");
+
+      const start = document.createElement("p");
+      start.textContent = new Date().toISOString();
+      debugEl.appendChild(start);
+
+      try {
+        const swipeHandler = new Tocada(touchArea);
+        const eventNames = [
+          "swipe",
+          "swipeleft",
+          "swiperight",
+          "swipeup",
+          "swipedown",
+          "swipecancel",
+          "pinch",
+          "spread",
+          "gesture",
+        ];
+
+        console.log(swipeHandler);
+
+        eventNames.forEach((eventName) => {
+          touchArea.addEventListener(eventName, (e) => {
+            console.log(e);
+            const eventLi = document.createElement("li");
+            eventLi.textContent = e.type;
+            debugEl.insertAdjacentElement("afterbegin", eventLi);
+          });
+        });
+      } catch (e) {
+        const errEl = document.createElement("p");
+        errEl.textContent = e.message;
+        debugEl.appendChild(errEl);
+      }
+    </script>
+  </body>
+</html>
