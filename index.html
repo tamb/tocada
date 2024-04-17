@@ -22,6 +22,7 @@
           <hr />
         </div>
         <div class="col-4">
+          <button id="destroy">Destroy</button>
           <ol id="eventNames"></ol>
           <div id="debug"></div>
         </div>
@@ -37,6 +38,8 @@
       const touchArea = document.getElementById("touchArea");
       const debugEl = document.getElementById("debug");
 
+      const destroyBtn = document.getElementById("destroy");
+
       const start = document.createElement("p");
       start.textContent = new Date().toISOString();
       debugEl.appendChild(start);
@@ -49,13 +52,16 @@
           "swiperight",
           "swipeup",
           "swipedown",
-          "swipecancel",
           "pinch",
           "spread",
           "gesture",
         ];
 
         console.log(swipeHandler);
+
+        destroyBtn.addEventListener("click", () => {
+          swipeHandler.destroy();
+        });
 
         eventNames.forEach((eventName) => {
           touchArea.addEventListener(eventName, (e) => {

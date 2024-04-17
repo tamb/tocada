@@ -1,30 +1,20 @@
-# Project Name
+```
+/**
+Add events for
+swipe // fired for any event
+swipeup
+swiperight
+swipedown
+swipeleft
+gesture // fired before any pinch or spread
+pinch
+spread
+*/
+const swipeArea = new Tocada (querySelector | element);
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+/**
+Remove events
+*/
+swipeArea.destroy();
 
-## Description
-
-A brief description of the project.
-
-## Table of Contents
-
-- [Installation](#installation)
-- [Usage](#usage)
-- [Contributing](#contributing)
-- [License](#license)
-
-## Installation
-
-Instructions on how to install and run the project.
-
-## Usage
-
-Instructions on how to use the project.
-
-## Contributing
-
-Guidelines on how to contribute to the project.
-
-## License
-
-This project is licensed under the [MIT License](LICENSE).
+```

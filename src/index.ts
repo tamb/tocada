@@ -4,8 +4,8 @@ type GestureType =
   | "swipedown"
   | "swipeleft"
   | "swiperight"
-  | "pinch" // TODO: add pinch support
-  | "spread" // TODO: add spread support
+  | "pinch"
+  | "spread"
   | "gesture";
 
 interface TocadaOptions {
@@ -72,12 +72,18 @@ export default class Tocada {
     };
     this.eventPrefix = eventPrefix;
 
-    this.element.addEventListener("touchstart", this.handleTouchStart.bind(this), false);
-    this.element.addEventListener("touchmove", this.handleTouchMove.bind(this), false);
-    this.element.addEventListener("touchend", this.handleTouchEnd.bind(this), false);
+    this.element.addEventListener("touchstart", this.handleTouchStart, false);
+    this.element.addEventListener("touchmove", this.handleTouchMove, false);
+    this.element.addEventListener("touchend", this.handleTouchEnd, false);
   }
 
-  private handleTouchStart(event: TouchEvent) {
+  destroy() {
+    this.element?.removeEventListener("touchstart", this.handleTouchStart);
+    this.element?.removeEventListener("touchmove", this.handleTouchMove);
+    this.element?.removeEventListener("touchend", this.handleTouchEnd);
+  }
+
+  private handleTouchStart = (event: TouchEvent) => {
     this.activeTouches += event.changedTouches.length;
     this.touchCount = event.touches.length;
 
@@ -89,9 +95,9 @@ export default class Tocada {
       this.isMultiTouch = false;
       this.handleSwipeStart(event);
     }
-  }
+  };
 
-  private handleTouchMove(event: TouchEvent) {
+  private handleTouchMove = (event: TouchEvent) => {
     // Prevent default behavior to prevent scrolling
     event.preventDefault();
     const x = event.touches[0].clientX;
@@ -102,9 +108,9 @@ export default class Tocada {
     if (this.isMultiTouch) {
       this.handleGestureMove(event);
     }
-  }
+  };
 
-  private handleTouchEnd(event: TouchEvent) {
+  private handleTouchEnd = (event: TouchEvent) => {
     if (this.activeTouches >= 2) {
       this.handleGestureEnd(event);
       this.touchCount = 0;
@@ -114,9 +120,9 @@ export default class Tocada {
     }
 
     this.activeTouches -= event.changedTouches.length;
-  }
+  };
 
-  private handleSwipeStart(event: TouchEvent) {
+  private handleSwipeStart = (event: TouchEvent) => {
     const touch = event.touches[0];
     this.startX = touch.clientX;
     this.startY = touch.clientY;
@@ -125,9 +131,9 @@ export default class Tocada {
     this.startingElement = document.elementsFromPoint(this.startX, this.startY)[0] as HTMLElement;
 
     this.touchedElements.push(this.startingElement);
-  }
+  };
 
-  private handleSwipeEnd(event: TouchEvent) {
+  private handleSwipeEnd = (event: TouchEvent) => {
     if (!this.isMultiTouch && this.touchCount === 1) {
       // Handle swipe gesture
       const touch = event.changedTouches[0];
@@ -172,17 +178,17 @@ export default class Tocada {
 
       this.touchedElements = [];
     }
-  }
+  };
 
-  private handleGestureStart(event: TouchEvent) {
+  private handleGestureStart = (event: TouchEvent) => {
     this.isMultiTouch = true;
-  }
+  };
 
-  private handleGestureMove(event: TouchEvent) {
+  private handleGestureMove = (event: TouchEvent) => {
     this.latestGestureDistance = this.getDistanceBetweenTouchPoints(event.touches);
-  }
+  };
 
-  private handleGestureEnd(event: TouchEvent) {
+  private handleGestureEnd = (event: TouchEvent) => {
     this.isMultiTouch = false;
 
     this.dispatchGestureEvent("gesture");
@@ -194,25 +200,25 @@ export default class Tocada {
     }
 
     this.latestGestureDistance = 0;
-  }
+  };
 
-  private getDistanceBetweenTouchPoints(touches: TouchEvent["changedTouches"]) {
+  private getDistanceBetweenTouchPoints = (touches: TouchEvent["changedTouches"]) => {
     const distanceX = touches[0].clientX - touches[1].clientX;
     const distanceY = touches[0].clientY - touches[1].clientY;
     return Math.hypot(distanceX, distanceY);
-  }
+  };
 
-  private dispatchSwipeEvent(gestureType: GestureType, details: SwipeEventDetails) {
+  private dispatchSwipeEvent = (gestureType: GestureType, details: SwipeEventDetails) => {
     const eventName = this.eventPrefix + gestureType;
     const swipeEvent = new CustomEvent(eventName, { detail: details });
     this.element!.dispatchEvent(swipeEvent);
-  }
+  };
 
-  private dispatchGestureEvent(gestureType: GestureType) {
+  private dispatchGestureEvent = (gestureType: GestureType) => {
     const eventName = this.eventPrefix + gestureType;
     const gestureEvent = new CustomEvent(eventName);
     this.element!.dispatchEvent(gestureEvent);
-  }
+  };
 }
 
 function difference(num1: number, num2: number): number {
