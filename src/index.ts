@@ -5,7 +5,8 @@ type GestureType =
   | "swipeleft"
   | "swiperight"
   | "pinch"
-  | "spread";
+  | "spread"
+  | "gesture";
 
 interface TocadaOptions {
   thresholds?: {
@@ -23,25 +24,43 @@ interface SwipeEventDetails {
   avgPressure: number;
   startPressure: number;
   endPressure: number;
-  angle: number;
+  startTime: number;
+  endTime: number;
+  distanceX: number;
+  distanceY: number;
+  distance: number;
+  startingElement: HTMLElement | null;
+  endingElement: HTMLElement;
+  touchedElements: HTMLElement[];
 }
 
 export default class Tocada {
   private element: HTMLElement | null;
 
+  // detail object properties
   private startX: number = 0;
   private startY: number = 0;
   private startTime: number = 0;
   private startPressure: number = 0;
   private endPressure: number = 0;
+  private startingElement: HTMLElement | null = null;
+  private touchedElements: HTMLElement[] = [];
 
+  // options
   private thresholds!: {
     swipeThreshold: number;
     pinchThreshold: number;
     spreadThreshold: number;
   };
-  private pinchStartDistance: number = 0;
   private eventPrefix: string = "";
+
+  private pinchStartDistance: number = 0;
+  private isMultiTouch = false;
+  private isTouching = false;
+  private activeTouches = 0;
+  private touchCount = 0;
+
+  private gestureTouches: Touch[] = [];
 
   constructor(queryStringOrElement: string | HTMLElement, options: TocadaOptions = {}) {
     this.element =
@@ -67,87 +86,108 @@ export default class Tocada {
   }
 
   private handleTouchStart(event: TouchEvent) {
-    // FIXME - pinch and spread are not firing
-    const touch = event.touches[0];
-    this.startX = touch.clientX;
-    this.startY = touch.clientY;
-    this.startTime = Date.now();
-    this.startPressure = touch.force || 0;
+    this.activeTouches += event.changedTouches.length;
+    this.touchCount = event.touches.length;
 
-    if (event.touches.length === 2) {
-      const touch1 = event.touches[0];
-      const touch2 = event.touches[1];
-      this.pinchStartDistance = Math.hypot(
-        touch1.clientX - touch2.clientX,
-        touch1.clientY - touch2.clientY
-      );
+    if (this.activeTouches > 1) {
+      this.isMultiTouch = true;
+      this.isTouching = true;
+      this.handleGestureStart(event);
+    } else {
+      this.isTouching = true;
+      this.isMultiTouch = false;
+      this.handleSwipeStart(event);
     }
   }
 
   private handleTouchMove(event: TouchEvent) {
     // Prevent default behavior to prevent scrolling
     event.preventDefault();
+    const x = event.touches[0].clientX;
+    const y = event.touches[0].clientY;
+    const element = document.elementFromPoint(x, y) as HTMLElement;
+    if (element) this.touchedElements.push(element);
   }
 
   private handleTouchEnd(event: TouchEvent) {
-    const touch = event.changedTouches[0];
-    const endTime = Date.now();
-    const deltaTime = endTime - this.startTime;
-    const deltaX = touch.clientX - this.startX;
-    const deltaY = touch.clientY - this.startY;
-    const distance = Math.hypot(deltaX, deltaY);
-    const velocityX = deltaX / deltaTime;
-    const velocityY = deltaY / deltaTime;
-    const velocity = distance / deltaTime;
-    this.endPressure = touch.force || 0;
-    const avgPressure = (this.startPressure + this.endPressure) / 2;
+    if (this.activeTouches >= 2) {
+      this.handleGestureEnd(event);
+      this.touchCount = 0;
+    } else if (this.activeTouches === 1) {
+      this.handleSwipeEnd(event);
+      this.touchCount = 0;
+    }
 
-    if (distance > this.thresholds.swipeThreshold) {
-      const xDirection = deltaX > 0 ? "swiperight" : "swipeleft";
-      const yDirection = deltaY > 0 ? "swipedown" : "swipeup";
-      // TODO - doublecheck this logic
-      // FIXME - this logic (above and below) is busted
-      const angle = Math.atan2(deltaY, deltaX);
+    this.activeTouches -= event.changedTouches.length;
+  }
+
+  private handleSwipeStart(event: TouchEvent) {
+    const touch = event.touches[0];
+    this.startX = touch.clientX;
+    this.startY = touch.clientY;
+    this.startTime = Date.now();
+    this.startPressure = touch.force || 0;
+    this.startingElement = document.elementsFromPoint(this.startX, this.startY)[0] as HTMLElement;
+
+    this.touchedElements.push(this.startingElement);
+  }
+
+  private handleSwipeEnd(event: TouchEvent) {
+    if (!this.isMultiTouch && this.touchCount === 1) {
+      // Handle swipe gesture
+      const touch = event.changedTouches[0];
+      const endTime = Date.now();
+      const deltaTime = endTime - this.startTime;
+      const deltaX = difference(this.startX, touch.clientX);
+      const deltaY = difference(this.startY, touch.clientY);
+      const distanceX = Math.abs(deltaX);
+      const distanceY = Math.abs(deltaY);
+      const distance = Math.hypot(distanceX, distanceY);
+      const velocityX = deltaX / deltaTime;
+      const velocityY = deltaY / deltaTime;
+      const velocity = distance / deltaTime;
+      this.endPressure = touch.force || 0;
+      const avgPressure = (this.startPressure + this.endPressure) / 2;
+      const endingElement = document.elementFromPoint(touch.clientX, touch.clientY) as HTMLElement;
+
+      const detail = {
+        velocityX,
+        velocityY,
+        velocity,
+        avgPressure,
+        startPressure: this.startPressure,
+        endPressure: this.endPressure,
+        startTime: this.startTime,
+        endTime,
+        distanceX,
+        distanceY,
+        distance,
+        startingElement: this.startingElement,
+        endingElement,
+        touchedElements: this.touchedElements,
+      };
+
+      this.dispatchSwipeEvent("swipe", detail);
+
+      const xDirection = this.startX < touch.clientX ? "swiperight" : "swipeleft";
+      const yDirection = this.startY < touch.clientY ? "swipedown" : "swipeup";
       const gestureType: GestureType = deltaX > deltaY ? xDirection : yDirection;
 
-      // always dispatch a swipe event
-      this.dispatchSwipeEvent("swipe", {
-        velocityX,
-        velocityY,
-        velocity,
-        avgPressure,
-        startPressure: this.startPressure,
-        endPressure: this.endPressure,
-        angle,
-      });
+      this.dispatchSwipeEvent(gestureType, detail);
 
-      // dispatch a specific swipe event
-      this.dispatchSwipeEvent(gestureType, {
-        velocityX,
-        velocityY,
-        velocity,
-        avgPressure,
-        startPressure: this.startPressure,
-        endPressure: this.endPressure,
-        angle,
-      });
+      this.touchedElements = [];
     }
+  }
 
-    if (event.touches.length === 2) {
-      const touch1 = event.touches[0];
-      const touch2 = event.touches[1];
-      const currentDistance = Math.hypot(
-        touch1.clientX - touch2.clientX,
-        touch1.clientY - touch2.clientY
-      );
-      const deltaDistance = currentDistance - this.pinchStartDistance;
+  private handleGestureStart(event: TouchEvent) {
+    this.isMultiTouch = true;
+    this.gestureTouches = Array.from(event.touches);
+  }
 
-      if (Math.abs(deltaDistance) > this.thresholds.pinchThreshold) {
-        const gestureType: GestureType = deltaDistance > 0 ? "spread" : "pinch";
-        this.dispatchGestureEvent(gestureType);
-        this.pinchStartDistance = currentDistance;
-      }
-    }
+  private handleGestureEnd(event: TouchEvent) {
+    this.isMultiTouch = false;
+    this.gestureTouches = [];
+    this.dispatchGestureEvent("gesture");
   }
 
   private dispatchSwipeEvent(gestureType: GestureType, details: SwipeEventDetails) {
@@ -160,5 +200,13 @@ export default class Tocada {
     const eventName = this.eventPrefix + gestureType;
     const gestureEvent = new CustomEvent(eventName);
     this.element!.dispatchEvent(gestureEvent);
+  }
+}
+
+function difference(num1: number, num2: number): number {
+  if (num1 < num2) {
+    return num2 - num1;
+  } else {
+    return num1 - num2;
   }
 }

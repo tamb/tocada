@@ -13,11 +13,14 @@
   <body>
     <div class="container">
       <div class="row">
-        <div
-          id="touchArea"
-          class="col-6 border"
-          style="height: 50vh; background-color: lightblue"
-        ></div>
+        <div id="touchArea" class="col-6 border" style="height: 50vh; background-color: lightblue">
+          <h1>Tocada</h1>
+          <p>Touch events with ease!</p>
+          <strong>Inspired by the wonderful Tocca.js library</strong>
+          <small>Written in Typescript with love</small>
+          <h2>Swipe around</h2>
+          <hr />
+        </div>
         <div class="col-6">
           <ol id="eventNames"></ol>
           <div id="debug"></div>
@@ -47,6 +50,9 @@
           "swipeup",
           "swipedown",
           "swipecancel",
+          "pinch",
+          "spread",
+          "gesture",
         ];
 
         console.log(swipeHandler);

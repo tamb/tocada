@@ -10,7 +10,9 @@
     "safe-publish": "npm run prepublish && npm publish",
     "prepublish": "npm run build",
     "build": "tsc",
-    "serve": "bunx serve ./"
+    "build:watch": "tsc --watch",
+    "serve": "bunx serve ./",
+    "dev": "concurrently \"bun run build:watch\" \"bun run serve\""
   },
   "repository": {
     "type": "git",
@@ -42,6 +44,7 @@
     "typescript"
   ],
   "devDependencies": {
+    "concurrently": "^8.2.2",
     "parcel": "^2.11.0",
     "typescript": "^5.3.3"
   }
