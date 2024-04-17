@@ -21,6 +21,7 @@ export default class Tocada {
     private activeTouches;
     private touchCount;
     constructor(queryStringOrElement: string | HTMLElement, options?: TocadaOptions);
+    destroy(): void;
     private handleTouchStart;
     private handleTouchMove;
     private handleTouchEnd;
