@@ -1,36 +1,5 @@
-type GestureType =
-  | "swipe"
-  | "swipeup"
-  | "swipedown"
-  | "swipeleft"
-  | "swiperight"
-  | "pinch"
-  | "spread"
-  | "gesture";
-
-interface TocadaOptions {
-  thresholds?: {
-    swipeThreshold?: number;
-  };
-  eventPrefix?: string;
-}
-
-interface SwipeEventDetails {
-  velocityX: number;
-  velocityY: number;
-  velocity: number;
-  avgPressure: number;
-  startPressure: number;
-  endPressure: number;
-  startTime: number;
-  endTime: number;
-  distanceX: number;
-  distanceY: number;
-  distance: number;
-  startingElement: HTMLElement | null;
-  endingElement: HTMLElement;
-  touchedElements: HTMLElement[];
-}
+import { ITocadaOptions, TGestureType, ISwipeEventDetails } from "types";
+import { difference } from "./utils";
 
 export default class Tocada {
   private element: HTMLElement | null;
@@ -56,7 +25,7 @@ export default class Tocada {
   private activeTouches = 0;
   private touchCount = 0;
 
-  constructor(queryStringOrElement: string | HTMLElement, options: TocadaOptions = {}) {
+  constructor(queryStringOrElement: string | HTMLElement, options: ITocadaOptions = {}) {
     this.element =
       typeof queryStringOrElement === "string"
         ? document.querySelector(queryStringOrElement)
@@ -172,7 +141,7 @@ export default class Tocada {
 
       const xDirection = this.startX < touch.clientX ? "swiperight" : "swipeleft";
       const yDirection = this.startY < touch.clientY ? "swipedown" : "swipeup";
-      const gestureType: GestureType = deltaX > deltaY ? xDirection : yDirection;
+      const gestureType: TGestureType = deltaX > deltaY ? xDirection : yDirection;
 
       this.dispatchSwipeEvent(gestureType, detail);
 
@@ -208,23 +177,15 @@ export default class Tocada {
     return Math.hypot(distanceX, distanceY);
   };
 
-  private dispatchSwipeEvent = (gestureType: GestureType, details: SwipeEventDetails) => {
+  private dispatchSwipeEvent = (gestureType: TGestureType, details: ISwipeEventDetails) => {
     const eventName = this.eventPrefix + gestureType;
     const swipeEvent = new CustomEvent(eventName, { detail: details });
     this.element!.dispatchEvent(swipeEvent);
   };
 
-  private dispatchGestureEvent = (gestureType: GestureType) => {
+  private dispatchGestureEvent = (gestureType: TGestureType) => {
     const eventName = this.eventPrefix + gestureType;
     const gestureEvent = new CustomEvent(eventName);
     this.element!.dispatchEvent(gestureEvent);
   };
-}
-
-function difference(num1: number, num2: number): number {
-  if (num1 < num2) {
-    return num2 - num1;
-  } else {
-    return num1 - num2;
-  }
 }
