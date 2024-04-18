@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { difference } from "utils";
+import { difference } from "./utils";
 
 describe("utils", () => {
   it("difference", () => {

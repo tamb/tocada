@@ -1,9 +1,4 @@
-interface TocadaOptions {
-    thresholds?: {
-        swipeThreshold?: number;
-    };
-    eventPrefix?: string;
-}
+import { ITocadaOptions } from "types";
 export default class Tocada {
     private element;
     private startX;
@@ -20,7 +15,7 @@ export default class Tocada {
     private isMultiTouch;
     private activeTouches;
     private touchCount;
-    constructor(queryStringOrElement: string | HTMLElement, options?: TocadaOptions);
+    constructor(queryStringOrElement: string | HTMLElement, options?: ITocadaOptions);
     destroy(): void;
     private handleTouchStart;
     private handleTouchMove;
@@ -34,5 +29,4 @@ export default class Tocada {
     private dispatchSwipeEvent;
     private dispatchGestureEvent;
 }
-export {};
 //# sourceMappingURL=index.d.ts.map

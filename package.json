@@ -1,11 +1,14 @@
 {
   "name": "tocada",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Touch events with ease! (Inspired by the wonderful Tocca.js library). Written in Typescript with love",
-  "main": "dist/main.js",
+  "main": "dist/index.js",
   "directories": {
     "test": "test"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "safe-publish": "npm run prepublish && npm publish",
     "prepublish": "npm run build",
