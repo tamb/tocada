@@ -1,6 +1,6 @@
 {
   "name": "tocada",
-  "version": "2.0.0-alpha.3",
+  "version": "2.0.0",
   "description": "Touch events with ease! (Inspired by the wonderful Tocca.js library). Written in Typescript with love",
   "main": "dist/main.js",
   "directories": {
@@ -9,10 +9,10 @@
   "scripts": {
     "safe-publish": "npm run prepublish && npm publish",
     "prepublish": "npm run build",
-    "build": "tsc",
-    "build:watch": "tsc --watch",
+    "build": "tsc --emitDeclarationOnly --declaration --outDir ./dist && bun build.js",
+    "build:watch": "bun build.js --watch",
     "serve": "bunx serve ./",
-    "dev": "concurrently \"bun run build:watch\" \"bun run serve\""
+    "test": "bun test"
   },
   "repository": {
     "type": "git",
@@ -44,8 +44,6 @@
     "typescript"
   ],
   "devDependencies": {
-    "concurrently": "^8.2.2",
-    "parcel": "^2.11.0",
     "typescript": "^5.3.3"
   }
 }
