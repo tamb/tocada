@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+    />
+    <title>My Bootstrap Page</title>
+  </head>
+
+  <body>
+    <div class="container">
+      <div class="row">
+        <div id="touchArea" class="col-8 border" style="height: 50vh; background-color: lightblue">
+          <h1>Tocada</h1>
+          <p>Touch events with ease!</p>
+          <strong>Inspired by the wonderful Tocca.js library</strong>
+          <small>Written in Typescript with love</small>
+          <h2>Swipe around</h2>
+          <hr />
+        </div>
+        <div class="col-4">
+          <button id="destroy">Destroy</button>
+          <ol id="eventNames"></ol>
+          <div id="debug"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- <script type="module" src="/index.js"></script> -->
+
+    <script type="module" src="./index.ts"></script>
+  </body>
+</html>
