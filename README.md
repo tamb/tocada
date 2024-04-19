@@ -4,6 +4,9 @@ Touch Events with ease
 <br/>
 
 ## It's dead simple to use
+```
+npm install tocada
+```
 
 ```
 /**
@@ -17,7 +20,10 @@ gesture // fired before any pinch or spread
 pinch
 spread
 */
-const swipeArea = new Tocada (querySelector | element);
+
+import { useTouchEvents } from "tocada";
+
+const swipeArea = useTouchEvents(querySelector | element);
 
 /**
 Remove events

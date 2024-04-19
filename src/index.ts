@@ -2,7 +2,7 @@ import { ITocadaOptions, TGestureType, ISwipeEventDetails } from "types";
 import { difference } from "./utils";
 
 export default class Tocada {
-  private element: HTMLElement | null;
+  element: HTMLElement | null;
 
   // detail object properties
   private startX: number = 0;
@@ -46,11 +46,11 @@ export default class Tocada {
     this.element.addEventListener("touchend", this.handleTouchEnd, false);
   }
 
-  destroy() {
+  destroy = () => {
     this.element?.removeEventListener("touchstart", this.handleTouchStart);
     this.element?.removeEventListener("touchmove", this.handleTouchMove);
     this.element?.removeEventListener("touchend", this.handleTouchEnd);
-  }
+  };
 
   private handleTouchStart = (event: TouchEvent) => {
     this.activeTouches += event.changedTouches.length;
@@ -188,4 +188,11 @@ export default class Tocada {
     const gestureEvent = new CustomEvent(eventName);
     this.element!.dispatchEvent(gestureEvent);
   };
+}
+
+export function useTouchEvents(
+  queryStringOrElement: string | HTMLElement,
+  options: ITocadaOptions = {}
+) {
+  return new Tocada(queryStringOrElement, options);
 }
