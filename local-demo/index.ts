@@ -1,12 +1,16 @@
 import Tocada from "tocada";
+import { version } from "../package.json";
 const touchArea = document.getElementById("touchArea");
 const debugEl = document.getElementById("debug");
+const versionEl = document.getElementById("version");
 
 const destroyBtn = document.getElementById("destroy");
 
 const start = document.createElement("p");
 start.textContent = new Date().toISOString();
 debugEl!.appendChild(start);
+
+versionEl!.textContent = version;
 
 try {
   const swipeHandler = new Tocada(touchArea!);

@@ -4,6 +4,12 @@ export type TGestureType =
   | "swipedown"
   | "swipeleft"
   | "swiperight"
+  // | "rotate" --- not implemented
+  // | rotateclockwise --- not implemented
+  // | rotateanticlockwise --- not implemented
+  // | "tap" --- not implemented
+  // | "doubletap" --- not implemented
+  // | "hold" --- not implemented
   | "pinch"
   | "spread"
   | "gesture";
@@ -30,4 +36,5 @@ export interface ISwipeEventDetails {
   startingElement: HTMLElement | null;
   endingElement: HTMLElement;
   touchedElements: HTMLElement[];
+  // angle: number; --- not implemented
 }

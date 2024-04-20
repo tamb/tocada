@@ -14,6 +14,6 @@
     "parcel": "^2.12.0"
   },
   "dependencies": {
-    "tocada": "./../tocada-2.0.1.tgz"
+    "tocada": "./../tocada-2.1.1.tgz"
   }
 }
