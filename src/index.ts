@@ -1,5 +1,5 @@
 import { ITocadaOptions, TGestureType, ISwipeEventDetails } from "types";
-import { difference } from "./utils";
+import { difference, getDistanceBetweenTouchPoints } from "./utils";
 
 export default class Tocada {
   element: HTMLElement | null;
@@ -58,7 +58,7 @@ export default class Tocada {
 
     if (this.activeTouches > 1) {
       this.isMultiTouch = true;
-      this.gestureStartDistance = this.getDistanceBetweenTouchPoints(event.touches);
+      this.gestureStartDistance = getDistanceBetweenTouchPoints(event.touches[0], event.touches[1]);
       this.handleGestureStart(event);
     } else {
       this.isMultiTouch = false;
@@ -154,7 +154,7 @@ export default class Tocada {
   };
 
   private handleGestureMove = (event: TouchEvent) => {
-    this.latestGestureDistance = this.getDistanceBetweenTouchPoints(event.touches);
+    this.latestGestureDistance = getDistanceBetweenTouchPoints(event.touches[0], event.touches[1]);
   };
 
   private handleGestureEnd = (event: TouchEvent) => {
@@ -169,12 +169,6 @@ export default class Tocada {
     }
 
     this.latestGestureDistance = 0;
-  };
-
-  private getDistanceBetweenTouchPoints = (touches: TouchEvent["changedTouches"]) => {
-    const distanceX = touches[0].clientX - touches[1].clientX;
-    const distanceY = touches[0].clientY - touches[1].clientY;
-    return Math.hypot(distanceX, distanceY);
   };
 
   private dispatchSwipeEvent = (gestureType: TGestureType, details: ISwipeEventDetails) => {

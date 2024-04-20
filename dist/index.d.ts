@@ -25,7 +25,6 @@ export default class Tocada {
     private handleGestureStart;
     private handleGestureMove;
     private handleGestureEnd;
-    private getDistanceBetweenTouchPoints;
     private dispatchSwipeEvent;
     private dispatchGestureEvent;
 }
