@@ -5,25 +5,26 @@ export default class Tocada {
   element: HTMLElement | null;
 
   // detail object properties
-  private startX: number = 0;
-  private startY: number = 0;
-  private startTime: number = 0;
-  private startPressure: number = 0;
   private endPressure: number = 0;
   private startingElement: HTMLElement | null = null;
+  private startPressure: number = 0;
+  private startTime: number = 0;
+  private startX: number = 0;
+  private startY: number = 0;
   private touchedElements: HTMLElement[] = [];
+
+  // local variables
+  private activeTouches = 0;
+  private gestureStartDistance: number = 0;
+  private isMultiTouch = false;
+  private latestGestureDistance: number = 0;
+  private touchCount = 0;
 
   // options
   private thresholds!: {
     swipeThreshold: number;
   };
   private eventPrefix: string = "";
-
-  private gestureStartDistance: number = 0;
-  private latestGestureDistance: number = 0;
-  private isMultiTouch = false;
-  private activeTouches = 0;
-  private touchCount = 0;
 
   constructor(queryStringOrElement: string | HTMLElement, options: ITocadaOptions = {}) {
     this.element =
@@ -113,39 +114,46 @@ export default class Tocada {
       const distanceX = Math.abs(deltaX);
       const distanceY = Math.abs(deltaY);
       const distance = Math.hypot(distanceX, distanceY);
-      const velocityX = deltaX / deltaTime;
-      const velocityY = deltaY / deltaTime;
-      const velocity = distance / deltaTime;
-      this.endPressure = touch.force || 0;
-      const avgPressure = (this.startPressure + this.endPressure) / 2;
-      const endingElement = document.elementFromPoint(touch.clientX, touch.clientY) as HTMLElement;
+      if (distance > this.thresholds.swipeThreshold) {
+        const velocityX = deltaX / deltaTime;
+        const velocityY = deltaY / deltaTime;
+        const velocity = distance / deltaTime;
+        this.endPressure = touch.force || 0;
+        const avgPressure = (this.startPressure + this.endPressure) / 2;
+        const endingElement = document.elementFromPoint(
+          touch.clientX,
+          touch.clientY
+        ) as HTMLElement;
 
-      const detail = {
-        velocityX,
-        velocityY,
-        velocity,
-        avgPressure,
-        startPressure: this.startPressure,
-        endPressure: this.endPressure,
-        startTime: this.startTime,
-        endTime,
-        distanceX,
-        distanceY,
-        distance,
-        startingElement: this.startingElement,
-        endingElement,
-        touchedElements: this.touchedElements,
-      };
+        const detail = {
+          velocityX,
+          velocityY,
+          velocity,
+          avgPressure,
+          startPressure: this.startPressure,
+          endPressure: this.endPressure,
+          startTime: this.startTime,
+          endTime,
+          distanceX,
+          distanceY,
+          distance,
+          startingElement: this.startingElement,
+          endingElement,
+          touchedElements: this.touchedElements,
+          startingCoords: { x: this.startX, y: this.startY },
+          endingCoords: { x: touch.clientX, y: touch.clientY },
+        };
 
-      this.dispatchSwipeEvent("swipe", detail);
+        this.dispatchSwipeEvent("swipe", detail);
 
-      const xDirection = this.startX < touch.clientX ? "swiperight" : "swipeleft";
-      const yDirection = this.startY < touch.clientY ? "swipedown" : "swipeup";
-      const gestureType: TGestureType = deltaX > deltaY ? xDirection : yDirection;
+        const xDirection = this.startX < touch.clientX ? "swiperight" : "swipeleft";
+        const yDirection = this.startY < touch.clientY ? "swipedown" : "swipeup";
+        const gestureType: TGestureType = deltaX > deltaY ? xDirection : yDirection;
 
-      this.dispatchSwipeEvent(gestureType, detail);
+        this.dispatchSwipeEvent(gestureType, detail);
 
-      this.touchedElements = [];
+        this.reset();
+      }
     }
   };
 
@@ -158,8 +166,6 @@ export default class Tocada {
   };
 
   private handleGestureEnd = (event: TouchEvent) => {
-    this.isMultiTouch = false;
-
     this.dispatchGestureEvent("gesture");
 
     if (this.latestGestureDistance < this.gestureStartDistance) {
@@ -167,8 +173,7 @@ export default class Tocada {
     } else {
       this.dispatchGestureEvent("spread");
     }
-
-    this.latestGestureDistance = 0;
+    this.reset();
   };
 
   private dispatchSwipeEvent = (gestureType: TGestureType, details: ISwipeEventDetails) => {
@@ -182,6 +187,24 @@ export default class Tocada {
     const gestureEvent = new CustomEvent(eventName);
     this.element!.dispatchEvent(gestureEvent);
   };
+
+  private reset() {
+    // detail object
+    this.endPressure = 0;
+    this.startingElement = null;
+    this.startPressure = 0;
+    this.startTime = 0;
+    this.startX = 0;
+    this.startY = 0;
+    this.touchedElements = [];
+
+    // local variables
+    // this.activeTouches = 0;
+    this.gestureStartDistance = 0;
+    this.isMultiTouch = false;
+    this.latestGestureDistance = 0;
+    this.touchCount = 0;
+  }
 }
 
 export function useTouchEvents(

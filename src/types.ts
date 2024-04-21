@@ -22,19 +22,21 @@ export interface ITocadaOptions {
 }
 
 export interface ISwipeEventDetails {
-  velocityX: number;
-  velocityY: number;
-  velocity: number;
   avgPressure: number;
-  startPressure: number;
-  endPressure: number;
-  startTime: number;
-  endTime: number;
+  distance: number;
   distanceX: number;
   distanceY: number;
-  distance: number;
-  startingElement: HTMLElement | null;
   endingElement: HTMLElement;
+  endPressure: number;
+  endTime: number;
+  startingElement: HTMLElement | null;
+  startPressure: number;
+  startTime: number;
   touchedElements: HTMLElement[];
+  velocity: number;
+  velocityX: number;
+  velocityY: number;
+  startingCoords: { x: number; y: number };
+  endingCoords: { x: number; y: number };
   // angle: number; --- not implemented
 }
