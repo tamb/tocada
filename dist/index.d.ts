@@ -1,20 +1,20 @@
 import { ITocadaOptions } from "types";
 export default class Tocada {
     element: HTMLElement | null;
-    private startX;
-    private startY;
-    private startTime;
-    private startPressure;
     private endPressure;
     private startingElement;
+    private startPressure;
+    private startTime;
+    private startX;
+    private startY;
     private touchedElements;
+    private activeTouches;
+    private gestureStartDistance;
+    private isMultiTouch;
+    private latestGestureDistance;
+    private touchCount;
     private thresholds;
     private eventPrefix;
-    private gestureStartDistance;
-    private latestGestureDistance;
-    private isMultiTouch;
-    private activeTouches;
-    private touchCount;
     constructor(queryStringOrElement: string | HTMLElement, options?: ITocadaOptions);
     destroy: () => void;
     private handleTouchStart;
@@ -27,6 +27,7 @@ export default class Tocada {
     private handleGestureEnd;
     private dispatchSwipeEvent;
     private dispatchGestureEvent;
+    private reset;
 }
 export declare function useTouchEvents(queryStringOrElement: string | HTMLElement, options?: ITocadaOptions): Tocada;
 //# sourceMappingURL=index.d.ts.map
