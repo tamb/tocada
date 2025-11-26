@@ -1,6 +1,6 @@
 {
   "name": "tocada",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "Touch events with ease! (Inspired by the wonderful Tocca.js library). Written in Typescript with love",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -53,8 +53,8 @@
     "typescript"
   ],
   "devDependencies": {
-    "@happy-dom/global-registrator": "^14.7.1",
-    "concurrently": "^8.2.2",
-    "typescript": "^5.3.3"
+    "@happy-dom/global-registrator": "^20.0.10",
+    "concurrently": "^9.2.1",
+    "typescript": "^5.9.3"
   }
 }

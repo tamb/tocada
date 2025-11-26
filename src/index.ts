@@ -1,5 +1,36 @@
-import { ITocadaOptions, TGestureType, ISwipeEventDetails } from "types";
-import { difference, getDistanceBetweenTouchPoints } from "./utils";
+import {
+  ITocadaOptions,
+  TGestureType,
+  ISwipeEventDetails,
+  ITapEventDetails,
+  IRotateEventDetails,
+  IPalmSwipeEventDetails,
+  ICircularSwipeEventDetails,
+  IPinchSpreadEventDetails,
+  IGestureEventDetails,
+  ITouchPoint,
+  ICoords,
+  DEFAULT_THRESHOLDS,
+} from "./types";
+import { getDistanceBetweenTouchPoints } from "./utils";
+import { classifyTapGesture, isDoubleTap, isTapMovementValid } from "./detectors/tap";
+import { detectCircularDirection, getCircularSwipeInfo } from "./detectors/circular-swipe";
+import {
+  isPalmSwipePattern,
+  getPalmSwipeDirection,
+  getPalmSwipeMetrics,
+} from "./detectors/palm-swipe";
+import { detectRotation } from "./detectors/rotate";
+import {
+  analyzeSwipe,
+  getSwipeDirection,
+  getSwipeGestureType,
+  buildSwipeEventDetails,
+} from "./detectors/swipe";
+import {
+  classifyPinchSpread,
+  buildPinchSpreadEventDetails,
+} from "./detectors/pinch-spread";
 
 export default class Tocada {
   element: HTMLElement | null;
@@ -20,10 +51,26 @@ export default class Tocada {
   private latestGestureDistance: number = 0;
   private touchCount = 0;
 
-  // options
-  private thresholds!: {
-    swipeThreshold: number;
-  };
+  // Tap/press/hold detection
+  private lastTapTime: number = 0;
+  private lastTapX: number = 0;
+  private lastTapY: number = 0;
+  private holdTimer: ReturnType<typeof setTimeout> | null = null;
+  private holdFired: boolean = false;
+
+  // Circular swipe detection
+  private touchPath: ITouchPoint[] = [];
+
+  // Rotation and pinch/spread detection
+  private gestureStartTouch1: ICoords | null = null;
+  private gestureStartTouch2: ICoords | null = null;
+
+  // Palm swipe detection
+  private palmStartPositions: ICoords[] = [];
+  private isPalmSwipe: boolean = false;
+
+  // thresholds
+  private thresholds!: Required<typeof DEFAULT_THRESHOLDS>;
   private eventPrefix: string = "";
 
   constructor(queryStringOrElement: string | HTMLElement, options: ITocadaOptions = {}) {
@@ -38,7 +85,8 @@ export default class Tocada {
 
     const { thresholds = {}, eventPrefix = "" } = options;
     this.thresholds = {
-      swipeThreshold: thresholds.swipeThreshold || 50,
+      ...DEFAULT_THRESHOLDS,
+      ...thresholds,
     };
     this.eventPrefix = eventPrefix;
 
@@ -51,6 +99,14 @@ export default class Tocada {
     this.element?.removeEventListener("touchstart", this.handleTouchStart);
     this.element?.removeEventListener("touchmove", this.handleTouchMove);
     this.element?.removeEventListener("touchend", this.handleTouchEnd);
+    this.clearTimers();
+  };
+
+  private clearTimers = () => {
+    if (this.holdTimer) {
+      clearTimeout(this.holdTimer);
+      this.holdTimer = null;
+    }
   };
 
   private handleTouchStart = (event: TouchEvent) => {
@@ -59,7 +115,42 @@ export default class Tocada {
 
     if (this.activeTouches > 1) {
       this.isMultiTouch = true;
-      this.gestureStartDistance = getDistanceBetweenTouchPoints(event.touches[0], event.touches[1]);
+      this.clearTimers(); // Cancel tap/hold detection for multi-touch
+
+      // Check for palm swipe pattern
+      const touches: ICoords[] = [];
+      for (let i = 0; i < event.touches.length; i++) {
+        touches.push({
+          x: event.touches[i].clientX,
+          y: event.touches[i].clientY,
+        });
+      }
+
+      this.isPalmSwipe = isPalmSwipePattern(
+        event.touches.length,
+        touches,
+        this.thresholds.palmMinTouches,
+        this.thresholds.palmLineTolerance
+      );
+
+      if (this.isPalmSwipe) {
+        this.palmStartPositions = touches;
+      } else if (event.touches.length === 2) {
+        // Two-finger gesture - track for rotation and pinch/spread
+        this.gestureStartDistance = getDistanceBetweenTouchPoints(
+          event.touches[0],
+          event.touches[1]
+        );
+        this.gestureStartTouch1 = {
+          x: event.touches[0].clientX,
+          y: event.touches[0].clientY,
+        };
+        this.gestureStartTouch2 = {
+          x: event.touches[1].clientX,
+          y: event.touches[1].clientY,
+        };
+      }
+
       this.handleGestureStart(event);
     } else {
       this.isMultiTouch = false;
@@ -74,6 +165,15 @@ export default class Tocada {
     const y = event.touches[0].clientY;
     const element = document.elementFromPoint(x, y) as HTMLElement;
     if (element) this.touchedElements.push(element);
+
+    // Track touch path for circular swipe detection (single touch)
+    if (!this.isMultiTouch) {
+      this.touchPath.push({
+        x,
+        y,
+        time: Date.now(),
+      });
+    }
 
     if (this.isMultiTouch) {
       this.handleGestureMove(event);
@@ -99,57 +199,153 @@ export default class Tocada {
     this.startTime = Date.now();
     this.startPressure = touch.force || 0;
     this.startingElement = document.elementsFromPoint(this.startX, this.startY)[0] as HTMLElement;
+    this.holdFired = false;
 
     this.touchedElements.push(this.startingElement);
+    this.touchPath = [{ x: this.startX, y: this.startY, time: this.startTime }];
+
+    // Start hold timer
+    this.holdTimer = setTimeout(() => {
+      this.holdFired = true;
+      this.dispatchTapEvent("hold", {
+        duration: this.thresholds.holdMinTime,
+        pressure: touch.force || 0,
+        element: this.startingElement,
+        coords: { x: this.startX, y: this.startY },
+        startTime: this.startTime,
+        endTime: Date.now(),
+      });
+    }, this.thresholds.holdMinTime);
   };
 
   private handleSwipeEnd = (event: TouchEvent) => {
+    this.clearTimers();
+
     if (!this.isMultiTouch && this.touchCount === 1) {
-      // Handle swipe gesture
       const touch = event.changedTouches[0];
       const endTime = Date.now();
-      const deltaTime = endTime - this.startTime;
-      const deltaX = difference(this.startX, touch.clientX);
-      const deltaY = difference(this.startY, touch.clientY);
-      const distanceX = Math.abs(deltaX);
-      const distanceY = Math.abs(deltaY);
-      const distance = Math.hypot(distanceX, distanceY);
-      if (distance > this.thresholds.swipeThreshold) {
-        const velocityX = deltaX / deltaTime;
-        const velocityY = deltaY / deltaTime;
-        const velocity = distance / deltaTime;
+      const duration = endTime - this.startTime;
+      const startCoords: ICoords = { x: this.startX, y: this.startY };
+      const endCoords: ICoords = { x: touch.clientX, y: touch.clientY };
+
+      // Check for tap/press/hold (low movement)
+      const isTapValid = isTapMovementValid(
+        this.startX,
+        this.startY,
+        touch.clientX,
+        touch.clientY
+      );
+
+      if (isTapValid && !this.holdFired) {
+        // Classify the tap gesture
+        const tapType = classifyTapGesture(duration, this.thresholds);
+
+        if (tapType === "tap") {
+          // Check for double tap
+          const isDouble = isDoubleTap(
+            endTime,
+            this.lastTapTime,
+            this.thresholds.doubleTapGap
+          );
+
+          // Also check position proximity for double tap
+          const tapPositionValid =
+            this.lastTapTime === 0 ||
+            isTapMovementValid(this.lastTapX, this.lastTapY, touch.clientX, touch.clientY, 30);
+
+          const tapDetails: ITapEventDetails = {
+            duration,
+            pressure: touch.force || 0,
+            element: this.startingElement,
+            coords: endCoords,
+            startTime: this.startTime,
+            endTime,
+          };
+
+          this.dispatchTapEvent("tap", tapDetails);
+
+          if (isDouble && tapPositionValid) {
+            this.dispatchTapEvent("doubletap", tapDetails);
+            this.lastTapTime = 0; // Reset to prevent triple-tap triggering double
+          } else {
+            this.lastTapTime = endTime;
+            this.lastTapX = touch.clientX;
+            this.lastTapY = touch.clientY;
+          }
+        } else if (tapType === "press") {
+          this.dispatchTapEvent("press", {
+            duration,
+            pressure: touch.force || 0,
+            element: this.startingElement,
+            coords: endCoords,
+            startTime: this.startTime,
+            endTime,
+          });
+        }
+        // hold is already fired by timer
+
+        this.reset();
+        return;
+      }
+
+      // Check for circular swipe
+      if (this.touchPath.length >= 5) {
+        const circularDirection = detectCircularDirection(
+          this.touchPath,
+          this.thresholds.circularSwipeMinArc
+        );
+
+        if (circularDirection) {
+          const circularInfo = getCircularSwipeInfo(this.touchPath);
+          const circularDetails: ICircularSwipeEventDetails = {
+            direction: circularDirection,
+            arc: circularInfo.arc,
+            touchPath: this.touchPath,
+          };
+
+          if (circularDirection === "clockwise") {
+            this.dispatchCircularSwipeEvent("swipeclockwise", circularDetails);
+          } else {
+            this.dispatchCircularSwipeEvent("swipecounterclockwise", circularDetails);
+          }
+
+          this.reset();
+          return;
+        }
+      }
+
+      // Check for linear swipe gesture using the swipe detector
+      const swipeAnalysis = analyzeSwipe(
+        startCoords,
+        endCoords,
+        duration,
+        this.thresholds.swipeThreshold
+      );
+
+      if (swipeAnalysis.isSwipe && swipeAnalysis.direction) {
         this.endPressure = touch.force || 0;
-        const avgPressure = (this.startPressure + this.endPressure) / 2;
         const endingElement = document.elementFromPoint(
           touch.clientX,
           touch.clientY
         ) as HTMLElement;
 
-        const detail = {
-          velocityX,
-          velocityY,
-          velocity,
-          avgPressure,
-          startPressure: this.startPressure,
-          endPressure: this.endPressure,
-          startTime: this.startTime,
+        const detail = buildSwipeEventDetails(
+          startCoords,
+          endCoords,
+          this.startTime,
           endTime,
-          distanceX,
-          distanceY,
-          distance,
-          startingElement: this.startingElement,
+          this.startPressure,
+          this.endPressure,
+          this.startingElement,
           endingElement,
-          touchedElements: this.touchedElements,
-          startingCoords: { x: this.startX, y: this.startY },
-          endingCoords: { x: touch.clientX, y: touch.clientY },
-        };
+          this.touchedElements
+        );
 
+        // Fire generic swipe first
         this.dispatchSwipeEvent("swipe", detail);
 
-        const xDirection = this.startX < touch.clientX ? "swiperight" : "swipeleft";
-        const yDirection = this.startY < touch.clientY ? "swipedown" : "swipeup";
-        const gestureType: TGestureType = deltaX > deltaY ? xDirection : yDirection;
-
+        // Then fire directional variant
+        const gestureType = getSwipeGestureType(swipeAnalysis.direction) as TGestureType;
         this.dispatchSwipeEvent(gestureType, detail);
 
         this.reset();
@@ -157,22 +353,123 @@ export default class Tocada {
     }
   };
 
-  private handleGestureStart = (event: TouchEvent) => {
+  private handleGestureStart = (_event: TouchEvent) => {
     this.isMultiTouch = true;
   };
 
   private handleGestureMove = (event: TouchEvent) => {
-    this.latestGestureDistance = getDistanceBetweenTouchPoints(event.touches[0], event.touches[1]);
+    if (event.touches.length >= 2) {
+      this.latestGestureDistance = getDistanceBetweenTouchPoints(
+        event.touches[0],
+        event.touches[1]
+      );
+    }
   };
 
   private handleGestureEnd = (event: TouchEvent) => {
-    this.dispatchGestureEvent("gesture");
-
-    if (this.latestGestureDistance < this.gestureStartDistance) {
-      this.dispatchGestureEvent("pinch");
-    } else {
-      this.dispatchGestureEvent("spread");
+    // Get end positions for all touches
+    const endPositions: ICoords[] = [];
+    for (let i = 0; i < event.changedTouches.length; i++) {
+      endPositions.push({
+        x: event.changedTouches[i].clientX,
+        y: event.changedTouches[i].clientY,
+      });
     }
+
+    // Handle palm swipe
+    if (this.isPalmSwipe && this.palmStartPositions.length >= this.thresholds.palmMinTouches) {
+      const direction = getPalmSwipeDirection(this.palmStartPositions, endPositions);
+      const duration = Date.now() - this.startTime;
+      const metrics = getPalmSwipeMetrics(this.palmStartPositions, endPositions, duration);
+
+      if (direction && metrics.distance > this.thresholds.swipeThreshold) {
+        const palmDetails: IPalmSwipeEventDetails = {
+          direction,
+          touchCount: this.palmStartPositions.length,
+          distance: metrics.distance,
+          velocity: metrics.velocity,
+          startPositions: this.palmStartPositions,
+          endPositions,
+        };
+
+        // Fire generic palm swipe first
+        this.dispatchPalmSwipeEvent("swipepalm", palmDetails);
+
+        // Then fire directional variant
+        const directionEvent = `swipepalm${direction}` as TGestureType;
+        this.dispatchPalmSwipeEvent(directionEvent, palmDetails);
+      }
+
+      this.reset();
+      return;
+    }
+
+    // Handle two-finger gestures (rotation and pinch/spread)
+    if (
+      this.gestureStartTouch1 &&
+      this.gestureStartTouch2 &&
+      endPositions.length >= 2
+    ) {
+      // Detect rotation
+      const rotationResult = detectRotation(
+        this.gestureStartTouch1,
+        this.gestureStartTouch2,
+        endPositions[0],
+        endPositions[1],
+        this.thresholds.rotateMinAngle
+      );
+
+      if (rotationResult.direction) {
+        const rotateDetails: IRotateEventDetails = {
+          angle: rotationResult.angle,
+          direction: rotationResult.direction,
+          startAngle: rotationResult.startAngle,
+          endAngle: rotationResult.endAngle,
+          centerPoint: rotationResult.centerPoint,
+        };
+
+        // Fire generic rotate first
+        this.dispatchRotateEvent("rotate", rotateDetails);
+
+        // Then fire directional variant
+        if (rotationResult.direction === "clockwise") {
+          this.dispatchRotateEvent("rotateclockwise", rotateDetails);
+        } else {
+          this.dispatchRotateEvent("rotatecounterclockwise", rotateDetails);
+        }
+      }
+
+      // Build pinch/spread event details
+      const pinchSpreadDetails = buildPinchSpreadEventDetails(
+        this.gestureStartTouch1,
+        this.gestureStartTouch2,
+        endPositions[0],
+        endPositions[1]
+      );
+
+      // Fire generic gesture event with details
+      this.dispatchGestureEvent("gesture", {
+        touchCount: this.touchCount,
+      });
+
+      // Handle pinch/spread using the detector
+      const pinchSpreadGesture = classifyPinchSpread(
+        this.gestureStartDistance,
+        this.latestGestureDistance
+      );
+
+      if (pinchSpreadGesture === "pinch") {
+        this.dispatchPinchSpreadEvent("pinch", pinchSpreadDetails);
+      } else if (pinchSpreadGesture === "spread") {
+        this.dispatchPinchSpreadEvent("spread", pinchSpreadDetails);
+      }
+    } else {
+      // Fire generic gesture event for other multi-touch
+      this.dispatchGestureEvent("gesture", {
+        touchCount: this.touchCount,
+      });
+    }
+
     this.reset();
   };
 
@@ -182,9 +479,48 @@ export default class Tocada {
     this.element!.dispatchEvent(swipeEvent);
   };
 
-  private dispatchGestureEvent = (gestureType: TGestureType) => {
+  private dispatchTapEvent = (gestureType: TGestureType, details: ITapEventDetails) => {
     const eventName = this.eventPrefix + gestureType;
-    const gestureEvent = new CustomEvent(eventName);
+    const tapEvent = new CustomEvent(eventName, { detail: details });
+    this.element!.dispatchEvent(tapEvent);
+  };
+
+  private dispatchCircularSwipeEvent = (
+    gestureType: TGestureType,
+    details: ICircularSwipeEventDetails
+  ) => {
+    const eventName = this.eventPrefix + gestureType;
+    const circularEvent = new CustomEvent(eventName, { detail: details });
+    this.element!.dispatchEvent(circularEvent);
+  };
+
+  private dispatchRotateEvent = (gestureType: TGestureType, details: IRotateEventDetails) => {
+    const eventName = this.eventPrefix + gestureType;
+    const rotateEvent = new CustomEvent(eventName, { detail: details });
+    this.element!.dispatchEvent(rotateEvent);
+  };
+
+  private dispatchPalmSwipeEvent = (
+    gestureType: TGestureType,
+    details: IPalmSwipeEventDetails
+  ) => {
+    const eventName = this.eventPrefix + gestureType;
+    const palmEvent = new CustomEvent(eventName, { detail: details });
+    this.element!.dispatchEvent(palmEvent);
+  };
+
+  private dispatchPinchSpreadEvent = (
+    gestureType: TGestureType,
+    details: IPinchSpreadEventDetails
+  ) => {
+    const eventName = this.eventPrefix + gestureType;
+    const pinchSpreadEvent = new CustomEvent(eventName, { detail: details });
+    this.element!.dispatchEvent(pinchSpreadEvent);
+  };
+
+  private dispatchGestureEvent = (gestureType: TGestureType, details: IGestureEventDetails) => {
+    const eventName = this.eventPrefix + gestureType;
+    const gestureEvent = new CustomEvent(eventName, { detail: details });
     this.element!.dispatchEvent(gestureEvent);
   };
 
@@ -199,11 +535,26 @@ export default class Tocada {
     this.touchedElements = [];
 
     // local variables
-    // this.activeTouches = 0;
     this.gestureStartDistance = 0;
     this.isMultiTouch = false;
     this.latestGestureDistance = 0;
     this.touchCount = 0;
+
+    // Tap detection (don't reset lastTapTime - needed for doubletap)
+    this.holdFired = false;
+
+    // Circular swipe
+    this.touchPath = [];
+
+    // Rotation and pinch/spread
+    this.gestureStartTouch1 = null;
+    this.gestureStartTouch2 = null;
+
+    // Palm swipe
+    this.palmStartPositions = [];
+    this.isPalmSwipe = false;
+
+    this.clearTimers();
   }
 }
 
@@ -213,3 +564,6 @@ export function useTouchEvents(
 ) {
   return new Tocada(queryStringOrElement, options);
 }
+
+// Re-export types for consumers
+export * from "./types";
