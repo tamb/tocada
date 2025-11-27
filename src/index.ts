@@ -64,6 +64,8 @@ export default class Tocada {
   // Rotation and pinch/spread detection
   private gestureStartTouch1: ICoords | null = null;
   private gestureStartTouch2: ICoords | null = null;
+  private latestTouch1: ICoords | null = null;
+  private latestTouch2: ICoords | null = null;
 
   // Palm swipe detection
   private palmStartPositions: ICoords[] = [];
@@ -110,7 +112,8 @@ export default class Tocada {
   };
 
   private handleTouchStart = (event: TouchEvent) => {
-    this.activeTouches += event.changedTouches.length;
+    // Use event.touches.length as the source of truth for current touch count
+    this.activeTouches = event.touches.length;
     this.touchCount = event.touches.length;
 
     if (this.activeTouches > 1) {
@@ -149,6 +152,15 @@ export default class Tocada {
           x: event.touches[1].clientX,
           y: event.touches[1].clientY,
         };
+        // Initialize latest positions to start positions (in case gesture ends without movement)
+        this.latestTouch1 = {
+          x: event.touches[0].clientX,
+          y: event.touches[0].clientY,
+        };
+        this.latestTouch2 = {
+          x: event.touches[1].clientX,
+          y: event.touches[1].clientY,
+        };
       }
 
       this.handleGestureStart(event);
@@ -181,6 +193,9 @@ export default class Tocada {
   };
 
   private handleTouchEnd = (event: TouchEvent) => {
+    // Use event.touches.length as the source of truth before processing
+    const currentTouchCount = event.touches.length;
+    
     if (this.activeTouches >= 2) {
       this.handleGestureEnd(event);
       this.touchCount = 0;
@@ -189,7 +204,8 @@ export default class Tocada {
       this.touchCount = 0;
     }
 
-    this.activeTouches -= event.changedTouches.length;
+    // Update activeTouches to match actual touch state after processing
+    this.activeTouches = currentTouchCount;
   };
 
   private handleSwipeStart = (event: TouchEvent) => {
@@ -363,12 +379,32 @@ export default class Tocada {
         event.touches[0],
         event.touches[1]
       );
+      // Track latest positions for gesture end detection
+      this.latestTouch1 = {
+        x: event.touches[0].clientX,
+        y: event.touches[0].clientY,
+      };
+      this.latestTouch2 = {
+        x: event.touches[1].clientX,
+        y: event.touches[1].clientY,
+      };
     }
   };
 
   private handleGestureEnd = (event: TouchEvent) => {
     // Get end positions for all touches
+    // Combine event.touches (still active) and event.changedTouches (just ended)
     const endPositions: ICoords[] = [];
+    
+    // Add touches that are still active
+    for (let i = 0; i < event.touches.length; i++) {
+      endPositions.push({
+        x: event.touches[i].clientX,
+        y: event.touches[i].clientY,
+      });
+    }
+    
+    // Add touches that just ended
     for (let i = 0; i < event.changedTouches.length; i++) {
       endPositions.push({
         x: event.changedTouches[i].clientX,
@@ -405,17 +441,32 @@ export default class Tocada {
     }
 
     // Handle two-finger gestures (rotation and pinch/spread)
+    // Use latest tracked positions if available, otherwise use endPositions
+    let endTouch1: ICoords | null = null;
+    let endTouch2: ICoords | null = null;
+    
+    if (this.latestTouch1 && this.latestTouch2) {
+      // Use the latest tracked positions from move events
+      endTouch1 = this.latestTouch1;
+      endTouch2 = this.latestTouch2;
+    } else if (endPositions.length >= 2) {
+      // Fall back to end positions if we don't have latest positions
+      endTouch1 = endPositions[0];
+      endTouch2 = endPositions[1];
+    }
+    
     if (
       this.gestureStartTouch1 &&
       this.gestureStartTouch2 &&
-      endPositions.length >= 2
+      endTouch1 &&
+      endTouch2
     ) {
       // Detect rotation
       const rotationResult = detectRotation(
         this.gestureStartTouch1,
         this.gestureStartTouch2,
-        endPositions[0],
-        endPositions[1],
+        endTouch1,
+        endTouch2,
         this.thresholds.rotateMinAngle
       );
 
@@ -443,8 +494,8 @@ export default class Tocada {
       const pinchSpreadDetails = buildPinchSpreadEventDetails(
         this.gestureStartTouch1,
         this.gestureStartTouch2,
-        endPositions[0],
-        endPositions[1]
+        endTouch1,
+        endTouch2
       );
 
       // Fire generic gesture event with details
@@ -535,6 +586,8 @@ export default class Tocada {
     this.touchedElements = [];
 
     // local variables
+    // Note: activeTouches is managed by touch event handlers based on event.touches.length
+    // Do not reset it here to avoid breaking multitouch state
     this.gestureStartDistance = 0;
     this.isMultiTouch = false;
     this.latestGestureDistance = 0;
@@ -549,6 +602,8 @@ export default class Tocada {
     // Rotation and pinch/spread
     this.gestureStartTouch1 = null;
     this.gestureStartTouch2 = null;
+    this.latestTouch1 = null;
+    this.latestTouch2 = null;
 
     // Palm swipe
     this.palmStartPositions = [];
