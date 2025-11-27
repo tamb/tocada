@@ -145,8 +145,8 @@ window.addEventListener("unhandledrejection", (event) => {
 // Wrap the main code in try-catch
 try {
 
-// Create 8x8 grid of squares
-const gridSize = 8;
+// Create 16x16 grid of squares
+const gridSize = 16;
 for (let i = 0; i < gridSize * gridSize; i++) {
   const square = document.createElement("div");
   square.className = "touch-square";
