@@ -317,6 +317,7 @@ export default class Tocada {
             direction: circularDirection,
             arc: circularInfo.arc,
             touchPath: this.touchPath,
+            touchedElements: this.touchedElements,
           };
 
           if (circularDirection === "clockwise") {
@@ -440,6 +441,12 @@ export default class Tocada {
       return;
     }
 
+    // Fire generic "gesture" event first (before any specific gesture detection)
+    // This is like keydown - a generic hook for developers
+    this.dispatchGestureEvent("gesture", {
+      touchCount: this.touchCount,
+    });
+
     // Handle two-finger gestures (rotation and pinch/spread)
     // Use latest tracked positions if available, otherwise use endPositions
     let endTouch1: ICoords | null = null;
@@ -461,7 +468,7 @@ export default class Tocada {
       endTouch1 &&
       endTouch2
     ) {
-      // Detect rotation
+      // Detect rotation first - prioritize rotation over pinch/spread
       const rotationResult = detectRotation(
         this.gestureStartTouch1,
         this.gestureStartTouch2,
@@ -470,6 +477,7 @@ export default class Tocada {
         this.thresholds.rotateMinAngle
       );
 
+      // If rotation is significant, fire rotation events and skip pinch/spread
       if (rotationResult.direction) {
         const rotateDetails: IRotateEventDetails = {
           angle: rotationResult.angle,
@@ -488,8 +496,13 @@ export default class Tocada {
         } else {
           this.dispatchRotateEvent("rotatecounterclockwise", rotateDetails);
         }
+
+        // Rotation takes priority - skip pinch/spread detection
+        this.reset();
+        return;
       }
 
+      // Only check for pinch/spread if rotation was NOT significant
       // Build pinch/spread event details
       const pinchSpreadDetails = buildPinchSpreadEventDetails(
         this.gestureStartTouch1,
@@ -498,27 +511,25 @@ export default class Tocada {
         endTouch2
       );
 
-      // Fire generic gesture event with details
-      this.dispatchGestureEvent("gesture", {
-        touchCount: this.touchCount,
-      });
-
-      // Handle pinch/spread using the detector
-      const pinchSpreadGesture = classifyPinchSpread(
-        this.gestureStartDistance,
-        this.latestGestureDistance
+      // Calculate distance change
+      const distanceChange = Math.abs(
+        this.latestGestureDistance - this.gestureStartDistance
       );
 
-      if (pinchSpreadGesture === "pinch") {
-        this.dispatchPinchSpreadEvent("pinch", pinchSpreadDetails);
-      } else if (pinchSpreadGesture === "spread") {
-        this.dispatchPinchSpreadEvent("spread", pinchSpreadDetails);
+      // Only fire pinch/spread if distance change meets minimum threshold
+      if (distanceChange >= this.thresholds.pinchSpreadMinDistance) {
+        // Handle pinch/spread using the detector
+        const pinchSpreadGesture = classifyPinchSpread(
+          this.gestureStartDistance,
+          this.latestGestureDistance
+        );
+
+        if (pinchSpreadGesture === "pinch") {
+          this.dispatchPinchSpreadEvent("pinch", pinchSpreadDetails);
+        } else if (pinchSpreadGesture === "spread") {
+          this.dispatchPinchSpreadEvent("spread", pinchSpreadDetails);
+        }
       }
-    } else {
-      // Fire generic gesture event for other multi-touch
-      this.dispatchGestureEvent("gesture", {
-        touchCount: this.touchCount,
-      });
     }
 
     this.reset();

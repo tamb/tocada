@@ -47,6 +47,9 @@ export interface IThresholds {
 
   // Rotate
   rotateMinAngle?: number; // default 15 degrees
+
+  // Pinch/Spread
+  pinchSpreadMinDistance?: number; // default 20px - minimum distance change to register as pinch/spread
 }
 
 export interface ITocadaOptions {
@@ -114,6 +117,7 @@ export interface ICircularSwipeEventDetails {
   direction: "clockwise" | "counterclockwise";
   arc: number; // total arc traversed in degrees
   touchPath: ITouchPoint[];
+  touchedElements: HTMLElement[];
 }
 
 export interface IPinchSpreadEventDetails {
@@ -140,4 +144,5 @@ export const DEFAULT_THRESHOLDS: Required<IThresholds> = {
   palmMinTouches: 3,
   palmLineTolerance: 50,
   rotateMinAngle: 15,
+  pinchSpreadMinDistance: 20,
 };
