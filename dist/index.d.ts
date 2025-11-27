@@ -21,6 +21,8 @@ export default class Tocada {
     private touchPath;
     private gestureStartTouch1;
     private gestureStartTouch2;
+    private latestTouch1;
+    private latestTouch2;
     private palmStartPositions;
     private isPalmSwipe;
     private thresholds;
