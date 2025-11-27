@@ -4,6 +4,13 @@
   "description": "Touch events with ease! (Inspired by the wonderful Tocca.js library). Written in Typescript with love",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "directories": {
     "test": "test"
   },
@@ -11,17 +18,15 @@
     "dist"
   ],
   "scripts": {
-    "safe-publish": "bun run test && npm run prepublish && npm publish",
-    "prepublish": "npm run build",
     "build": "tsc --emitDeclarationOnly --declaration --outDir ./dist && bun build.js",
+    "build:pack": "bun run build && npm pack",
     "build:watch": "concurrently \"tsc --watch\" \"bun build.js --watch\"",
+    "demo": "bun clean.ts && bun run test && bun run build && npm pack && bun run demo:gh-pages",
+    "demo:gh-pages": "cd gh-pages && bun install --clean && bun run dev:local",
+    "safe-publish": "bun run test && bun run build && npm publish",
     "serve": "bunx serve ./",
     "test": "bun test",
-    "test:watch": "bunx test --watch",
-    "localdemo": "cd local-demo && bun install --clean && bun run dev",
-    "demo": "bun clean.ts && bun run test && bun run build && npm pack && bun run localdemo",
-    "demo:dev": "cd dev-demo && bun install --clean && bun run dev",
-    "dev": "concurrently \"bun run build:watch\" \"bun run demo:dev\""
+    "test:watch": "bunx test --watch"
   },
   "repository": {
     "type": "git",
