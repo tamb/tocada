@@ -22,7 +22,7 @@
     "build:pack": "bun run build && npm pack",
     "build:watch": "concurrently \"tsc --watch\" \"bun build.js --watch\"",
     "demo": "bun clean.ts && bun run test && bun run build && npm pack && bun run demo:gh-pages",
-    "demo:gh-pages": "cd gh-pages && bun install --clean && bun run dev:local",
+    "demo:gh-pages": "cd gh-pages && bun install --clean && bun run dev:tunnel",
     "safe-publish": "bun run test && bun run build && npm publish",
     "serve": "bunx serve ./",
     "test": "bun test",
