@@ -15,15 +15,14 @@ import {
 import { getDistanceBetweenTouchPoints } from "./utils";
 import { classifyTapGesture, isDoubleTap, isTapMovementValid } from "./detectors/tap";
 import { detectCircularDirection, getCircularSwipeInfo } from "./detectors/circular-swipe";
-import {
-  isPalmSwipePattern,
-  getPalmSwipeDirection,
-  getPalmSwipeMetrics,
-} from "./detectors/palm-swipe";
+// import {
+//   isPalmSwipePattern,
+//   getPalmSwipeDirection,
+//   getPalmSwipeMetrics,
+// } from "./detectors/palm-swipe";
 import { detectRotation } from "./detectors/rotate";
 import {
   analyzeSwipe,
-  getSwipeDirection,
   getSwipeGestureType,
   buildSwipeEventDetails,
 } from "./detectors/swipe";
@@ -133,12 +132,13 @@ export default class Tocada {
         });
       }
 
-      this.isPalmSwipe = isPalmSwipePattern(
-        event.touches.length,
-        touches,
-        this.thresholds.palmMinTouches,
-        this.thresholds.palmLineTolerance
-      );
+      // TODO: Implement better palm swipe detection
+      // this.isPalmSwipe = isPalmSwipePattern(
+      //   event.touches.length,
+      //   touches,
+      //   this.thresholds.palmMinTouches,
+      //   this.thresholds.palmLineTolerance
+      // );
 
       if (this.isPalmSwipe) {
         this.palmStartPositions = touches;
@@ -472,36 +472,37 @@ export default class Tocada {
       });
     }
 
+    // TODO: Implement better palm swipe detection
     // Handle palm swipe
-    if (this.isPalmSwipe && this.palmStartPositions.length >= this.thresholds.palmMinTouches) {
-      const direction = getPalmSwipeDirection(this.palmStartPositions, endPositions);
-      const duration = Date.now() - this.startTime;
-      const metrics = getPalmSwipeMetrics(this.palmStartPositions, endPositions, duration);
+    // if (this.isPalmSwipe && this.palmStartPositions.length >= this.thresholds.palmMinTouches) {
+    //   const direction = getPalmSwipeDirection(this.palmStartPositions, endPositions);
+    //   const duration = Date.now() - this.startTime;
+    //   const metrics = getPalmSwipeMetrics(this.palmStartPositions, endPositions, duration);
 
-      if (direction && metrics.distance > this.thresholds.swipeThreshold) {
-        const palmDetails: IPalmSwipeEventDetails = {
-          direction,
-          touchCount: this.palmStartPositions.length,
-          distance: metrics.distance,
-          velocity: metrics.velocity,
-          startPositions: this.palmStartPositions,
-          endPositions,
-        };
+    //   if (direction && metrics.distance > this.thresholds.swipeThreshold) {
+    //     const palmDetails: IPalmSwipeEventDetails = {
+    //       direction,
+    //       touchCount: this.palmStartPositions.length,
+    //       distance: metrics.distance,
+    //       velocity: metrics.velocity,
+    //       startPositions: this.palmStartPositions,
+    //       endPositions,
+    //     };
 
-        // Note: High precision fields are not available for palm swipes (multi-touch)
-        // as touchPath is only tracked for single-touch gestures
+    //     // Note: High precision fields are not available for palm swipes (multi-touch)
+    //     // as touchPath is only tracked for single-touch gestures
 
-        // Fire generic palm swipe first
-        this.dispatchPalmSwipeEvent("swipepalm", palmDetails);
+    //     // Fire generic palm swipe first
+    //     this.dispatchPalmSwipeEvent("swipepalm", palmDetails);
 
-        // Then fire directional variant
-        const directionEvent = `swipepalm${direction}` as TGestureType;
-        this.dispatchPalmSwipeEvent(directionEvent, palmDetails);
-      }
+    //     // Then fire directional variant
+    //     const directionEvent = `swipepalm${direction}` as TGestureType;
+    //     this.dispatchPalmSwipeEvent(directionEvent, palmDetails);
+    //   }
 
-      this.reset();
-      return;
-    }
+    //   this.reset();
+    //   return;
+    // }
 
     // Fire generic "gesture" event first (before any specific gesture detection)
     // This is like keydown - a generic hook for developers

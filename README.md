@@ -53,11 +53,11 @@ swipeArea.destroy();
 | `rotate` | Two-finger rotation (fires before directional) |
 | `rotateclockwise` | Clockwise two-finger rotation |
 | `rotatecounterclockwise` | Counter-clockwise two-finger rotation |
-| `swipepalm` | Palm swipe detected (fires before directional) |
+<!-- | `swipepalm` | Palm swipe detected (fires before directional) |
 | `swipepalmup` | Palm swipe upward |
 | `swipepalmdown` | Palm swipe downward |
 | `swipepalmleft` | Palm swipe left |
-| `swipepalmright` | Palm swipe right |
+| `swipepalmright` | Palm swipe right | -->
 
 ## Configuration Options
 
@@ -80,8 +80,8 @@ const swipeArea = useTouchEvents("#my-element", {
     pressMinTime: 200,         // Min duration for press (ms)
     holdMinTime: 500,          // Min duration for hold (ms)
     circularSwipeMinArc: 90,   // Min arc for circular swipe (degrees)
-    palmMinTouches: 3,         // Min touch points for palm swipe
-    palmLineTolerance: 50,     // Tolerance for palm line detection (px)
+    // NOT YET IMPLEMENTED palmMinTouches: 3,         // Min touch points for palm swipe
+    // NOT YET IMPLEMENTED palmLineTolerance: 50,     // Tolerance for palm line detection (px)
     rotateMinAngle: 15,        // Min angle for rotation (degrees)
   }
 });
@@ -176,7 +176,7 @@ Each event type provides a `detail` object with relevant data.
 }
 ```
 
-### Palm Swipe Events (`swipepalm`, `swipepalmup`, etc.)
+<!-- ### Palm Swipe Events (`swipepalm`, `swipepalmup`, etc.)
 
 ```javascript
 {
@@ -192,7 +192,7 @@ Each event type provides a `detail` object with relevant data.
   interpolatedTouchedElements?, // Elements found via interpolation between touchmove events
   derivedTouchedElements?,     // Combined and chronologically ordered array (recommended)
 }
-```
+``` -->
 
 ### Gesture Event (`gesture`)
 
@@ -270,7 +270,7 @@ import {
   ITapEventDetails,
   IRotateEventDetails,
   IPinchSpreadEventDetails,
-  IPalmSwipeEventDetails,
+  // IPalmSwipeEventDetails, NOT YET IMPLEMENTED
   ICircularSwipeEventDetails,
   DEFAULT_THRESHOLDS,
 } from "tocada";
