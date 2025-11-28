@@ -55,6 +55,7 @@ export interface IThresholds {
 export interface ITocadaOptions {
   thresholds?: IThresholds;
   eventPrefix?: string;
+  useHighPrecision?: boolean;
 }
 
 export interface ICoords {
@@ -85,6 +86,9 @@ export interface ISwipeEventDetails {
   velocityY: number;
   startingCoords: ICoords;
   endingCoords: ICoords;
+  touchedPathElements?: HTMLElement[];
+  interpolatedTouchedElements?: HTMLElement[];
+  derivedTouchedElements?: HTMLElement[];
 }
 
 export interface ITapEventDetails {
@@ -111,6 +115,9 @@ export interface IPalmSwipeEventDetails {
   velocity: number;
   startPositions: ICoords[];
   endPositions: ICoords[];
+  touchedPathElements?: HTMLElement[];
+  interpolatedTouchedElements?: HTMLElement[];
+  derivedTouchedElements?: HTMLElement[];
 }
 
 export interface ICircularSwipeEventDetails {
@@ -118,6 +125,9 @@ export interface ICircularSwipeEventDetails {
   arc: number; // total arc traversed in degrees
   touchPath: ITouchPoint[];
   touchedElements: HTMLElement[];
+  touchedPathElements?: HTMLElement[];
+  interpolatedTouchedElements?: HTMLElement[];
+  derivedTouchedElements?: HTMLElement[];
 }
 
 export interface IPinchSpreadEventDetails {

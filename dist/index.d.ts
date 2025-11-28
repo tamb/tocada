@@ -8,6 +8,8 @@ export default class Tocada {
     private startX;
     private startY;
     private touchedElements;
+    private interpolatedTouchedElements;
+    private lastTouchPosition;
     private activeTouches;
     private gestureStartDistance;
     private isMultiTouch;
@@ -27,6 +29,7 @@ export default class Tocada {
     private isPalmSwipe;
     private thresholds;
     private eventPrefix;
+    private useHighPrecision;
     constructor(queryStringOrElement: string | HTMLElement, options?: ITocadaOptions);
     destroy: () => void;
     private clearTimers;
@@ -38,6 +41,16 @@ export default class Tocada {
     private handleGestureStart;
     private handleGestureMove;
     private handleGestureEnd;
+    /**
+     * Gets all unique elements touched along a touch path by sampling points.
+     * Samples points from touchPath and finds elements at those coordinates.
+     */
+    private getTouchedPathElements;
+    /**
+     * Combines touchedElements, interpolatedTouchedElements, and touchedPathElements,
+     * orders them chronologically by their position in the touch path, and deduplicates.
+     */
+    private getDerivedTouchedElements;
     private dispatchSwipeEvent;
     private dispatchTapEvent;
     private dispatchCircularSwipeEvent;
