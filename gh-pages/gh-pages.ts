@@ -2,8 +2,9 @@ import { useTouchEvents } from "../dist/index.js";
 
 const touchArea = document.getElementById("touchArea");
 const eventDisplay = document.getElementById("eventDisplay");
+const useHighPrecisionCheckbox = document.getElementById("useHighPrecision");
 
-if (!touchArea || !eventDisplay) {
+if (!touchArea || !eventDisplay || !useHighPrecisionCheckbox) {
   throw new Error("Required elements not found");
 }
 
@@ -154,7 +155,13 @@ for (let i = 0; i < gridSize * gridSize; i++) {
 }
 
 // Initialize touch events
-const touchHandler = useTouchEvents(touchArea);
+let touchHandler = useTouchEvents(touchArea, { useHighPrecision: (useHighPrecisionCheckbox as HTMLInputElement).checked });
+
+useHighPrecisionCheckbox.addEventListener("change", (e) => {
+  const useHighPrecision = (e.target as HTMLInputElement).checked;
+  touchHandler.destroy();
+  touchHandler = useTouchEvents(touchArea, { useHighPrecision });
+}); 
 
 // Track recent events (keep only 2 most recent)
 const recentEvents: Array<{
@@ -284,9 +291,13 @@ eventNames.forEach((eventName) => {
     const detail = customEvent.detail || {};
 
     // Glow all touched elements (for swipe paths) or just the touched element (for taps)
-    if (detail.touchedElements && Array.isArray(detail.touchedElements) && detail.touchedElements.length > 0) {
+    // Prefer derivedTouchedElements if available (high precision mode), fall back to touchedElements
+    const elementsToGlow = detail.derivedTouchedElements || detail.touchedElements;
+    if (elementsToGlow && Array.isArray(elementsToGlow) && elementsToGlow.length > 0) {
+      // Deduplicate to ensure each square only glows once
+      const uniqueElements = Array.from(new Set(elementsToGlow));
       // For swipe gestures, glow all touched squares to show the path
-      glowSquares(detail.touchedElements);
+      glowSquares(uniqueElements);
     } else {
       // For tap/press/hold events, just glow the single element
       const touchedElement =

@@ -68,6 +68,10 @@ const swipeArea = useTouchEvents("#my-element", {
   // Prefix all event names (e.g., "myapp-swipe", "myapp-tap")
   eventPrefix: "myapp-",
   
+  // Enable high-precision element tracking (fills gaps between touchmove events)
+  // Adds computational overhead - use when you need complete element coverage
+  useHighPrecision: true,
+  
   // Customize detection thresholds
   thresholds: {
     swipeThreshold: 50,        // Min distance for swipe (px)
@@ -112,6 +116,10 @@ Each event type provides a `detail` object with relevant data.
   touchedElements,   // All elements touched during swipe
   startingCoords,    // { x, y } start position
   endingCoords,      // { x, y } end position
+  // High precision fields (only when useHighPrecision: true)
+  touchedPathElements?,        // Elements found by sampling touchPath coordinates
+  interpolatedTouchedElements?, // Elements found via interpolation between touchmove events
+  derivedTouchedElements?,     // Combined and chronologically ordered array (recommended)
 }
 ```
 
@@ -135,6 +143,11 @@ Each event type provides a `detail` object with relevant data.
   direction,         // "clockwise" or "counterclockwise"
   arc,               // Total arc traversed (degrees)
   touchPath,         // Array of { x, y, time } points
+  touchedElements,   // All elements touched during circular swipe
+  // High precision fields (only when useHighPrecision: true)
+  touchedPathElements?,        // Elements found by sampling touchPath coordinates
+  interpolatedTouchedElements?, // Elements found via interpolation between touchmove events
+  derivedTouchedElements?,     // Combined and chronologically ordered array (recommended)
 }
 ```
 
@@ -173,6 +186,11 @@ Each event type provides a `detail` object with relevant data.
   velocity,          // Speed of swipe
   startPositions,    // Array of { x, y } start positions
   endPositions,      // Array of { x, y } end positions
+  // High precision fields (only when useHighPrecision: true)
+  // Note: Not available for palm swipes (multi-touch gestures)
+  touchedPathElements?,        // Elements found by sampling touchPath coordinates
+  interpolatedTouchedElements?, // Elements found via interpolation between touchmove events
+  derivedTouchedElements?,     // Combined and chronologically ordered array (recommended)
 }
 ```
 
@@ -183,6 +201,62 @@ Each event type provides a `detail` object with relevant data.
   touchCount,        // Number of simultaneous touches
 }
 ```
+
+## High Precision Touch Tracking
+
+When `useHighPrecision: true` is enabled, Tocada provides additional element tracking arrays to fill gaps between discrete `touchmove` events during rapid swipes. This is useful for:
+
+- **Visual feedback**: Highlighting all elements in a swipe path
+- **Game interactions**: Detecting all tiles/elements touched during a gesture
+- **Complete coverage**: Ensuring no elements are missed during fast swipes
+
+### Usage
+
+```javascript
+const swipeArea = useTouchEvents("#my-element", {
+  useHighPrecision: true
+});
+
+swipeArea.element.addEventListener("swipe", (e) => {
+  // Use derivedTouchedElements for complete, ordered coverage
+  const allElements = e.detail.derivedTouchedElements || e.detail.touchedElements;
+  allElements.forEach(el => el.classList.add("highlighted"));
+});
+```
+
+### Available Arrays
+
+When `useHighPrecision: true`, three additional arrays are provided:
+
+- **`touchedPathElements`**: Elements found by sampling coordinates from the `touchPath` array. This fills gaps by checking elements at points along the recorded touch path.
+
+- **`interpolatedTouchedElements`**: Elements found via interpolation between consecutive `touchmove` events. Samples points every 5-10px along the interpolation path to catch elements that might have been missed.
+
+- **`derivedTouchedElements`**: **Recommended to use**. A combined array that merges `touchedElements`, `interpolatedTouchedElements`, and `touchedPathElements`, then orders them chronologically by their position in the touch path and deduplicates them.
+
+### Performance Considerations
+
+High precision tracking adds computational overhead as it:
+- Samples multiple points along the touch path
+- Calls `document.elementFromPoint()` for each sampled point
+- Performs interpolation calculations during touch moves
+
+Only enable this feature when you need complete element coverage. For most use cases, the standard `touchedElements` array is sufficient.
+
+### Native Browser Alternatives
+
+For custom tracking needs or edge cases, you can use native browser APIs:
+
+- **`document.elementFromPoint(x, y)`**: Get the topmost element at specific coordinates
+- **`document.elementsFromPoint(x, y)`**: Get all elements at coordinates (in stack order)
+- **`TouchEvent.touches`**: Access raw touch data during move events
+- **`TouchEvent.changedTouches`**: Touches that changed in the current event
+
+These native APIs can be useful for:
+- Custom interpolation logic
+- Handling edge cases not covered by Tocada
+- Building specialized touch tracking features
+- Debugging touch event behavior
 
 ## TypeScript Support
 
