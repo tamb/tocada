@@ -191,11 +191,11 @@ const eventNames = [
   "rotate",
   "rotateclockwise",
   "rotatecounterclockwise",
-  "swipepalm",
-  "swipepalmup",
-  "swipepalmdown",
-  "swipepalmleft",
-  "swipepalmright",
+  // "swipepalm",
+  // "swipepalmup",
+  // "swipepalmdown",
+  // "swipepalmleft",
+  // "swipepalmright",
 ];
 
 // Function to make a square glow
