@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import Tocada, { useTouchEvents, DEFAULT_THRESHOLDS } from "./index";
+import Tocada, { useTouchEvents, usePointerEvents, DEFAULT_THRESHOLDS } from "./index";
 
 describe("useTouchEvents", () => {
   it("should return Tocada instance", () => {
@@ -114,6 +114,91 @@ function createMockTouchEvent(
   
   return event as TouchEvent;
 }
+
+function createMockPointerEvent(
+  type: "pointerdown" | "pointermove" | "pointerup" | "pointercancel",
+  pointerId: number,
+  clientX: number,
+  clientY: number,
+  opts?: { buttons?: number; pointerType?: string }
+): PointerEvent {
+  const ev = new Event(type, { bubbles: true, cancelable: true }) as unknown as PointerEvent;
+  Object.assign(ev as object, {
+    pointerId,
+    clientX,
+    clientY,
+    pageX: clientX,
+    pageY: clientY,
+    button: 0,
+    buttons: opts?.buttons ?? 1,
+    pointerType: opts?.pointerType ?? "touch",
+    pressure: 0.5,
+    preventDefault: () => {},
+  });
+  return ev;
+}
+
+describe("Pointer Events mode", () => {
+  it("usePointerEvents returns Tocada instance", () => {
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const t = usePointerEvents(el);
+    expect(t).toBeInstanceOf(Tocada);
+    t.destroy();
+    document.body.removeChild(el);
+  });
+
+  it("fires generic gesture before rotate for two-pointer rotation", () => {
+    const element = document.createElement("div");
+    document.body.appendChild(element);
+    const tocada = new Tocada(element, { pointerEvents: true });
+
+    const events: string[] = [];
+    element.addEventListener("gesture", () => events.push("gesture"));
+    element.addEventListener("rotate", () => events.push("rotate"));
+    element.addEventListener("rotateclockwise", () => events.push("rotateclockwise"));
+
+    element.dispatchEvent(createMockPointerEvent("pointerdown", 1, 100, 100));
+    element.dispatchEvent(createMockPointerEvent("pointerdown", 2, 200, 100));
+
+    element.dispatchEvent(createMockPointerEvent("pointermove", 1, 100, 150));
+    element.dispatchEvent(createMockPointerEvent("pointermove", 2, 200, 50));
+
+    element.dispatchEvent(createMockPointerEvent("pointerup", 1, 100, 150, { buttons: 1 }));
+    element.dispatchEvent(createMockPointerEvent("pointerup", 2, 200, 50, { buttons: 0 }));
+
+    expect(events[0]).toBe("gesture");
+    expect(events).toContain("rotate");
+
+    tocada.destroy();
+    document.body.removeChild(element);
+  });
+
+  it("fires pinch when rotation is minimal (pointer)", () => {
+    const element = document.createElement("div");
+    document.body.appendChild(element);
+    const tocada = new Tocada(element, { pointerEvents: true });
+
+    const events: string[] = [];
+    element.addEventListener("rotate", () => events.push("rotate"));
+    element.addEventListener("pinch", () => events.push("pinch"));
+
+    element.dispatchEvent(createMockPointerEvent("pointerdown", 1, 100, 100));
+    element.dispatchEvent(createMockPointerEvent("pointerdown", 2, 200, 100));
+
+    element.dispatchEvent(createMockPointerEvent("pointermove", 1, 120, 100));
+    element.dispatchEvent(createMockPointerEvent("pointermove", 2, 180, 100));
+
+    element.dispatchEvent(createMockPointerEvent("pointerup", 1, 120, 100, { buttons: 1 }));
+    element.dispatchEvent(createMockPointerEvent("pointerup", 2, 180, 100, { buttons: 0 }));
+
+    expect(events).toContain("pinch");
+    expect(events).not.toContain("rotate");
+
+    tocada.destroy();
+    document.body.removeChild(element);
+  });
+});
 
 describe("Gesture Event Priority", () => {
   let element: HTMLElement;
