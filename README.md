@@ -37,7 +37,7 @@ For **TouchEvent-only** input (legacy mobile pipelines), use `useTouchEvents` in
 | `doubletap` | Two taps within 300ms |
 | `press` | Touch held 200-500ms |
 | `hold` | Touch held > 500ms |
-| `swipe` | Fires before directional swipe events |
+| `swipe` | Fires before directional swipe events (same gesture also emits `swipeup` / `swipedown` / etc.) |
 | `swipeup` | Swipe in upward direction |
 | `swipedown` | Swipe in downward direction |
 | `swipeleft` | Swipe in left direction |

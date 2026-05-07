@@ -46,6 +46,9 @@ function coalescedPointerSlices(e: PointerEvent): PointerEvent[] {
   return [e];
 }
 
+/** Same object must be used for add + remove (passive/capture must match or listeners leak). */
+const POINTER_LISTENER_OPTIONS: AddEventListenerOptions = { passive: false };
+
 export default class Tocada {
   element: HTMLElement | null;
 
@@ -120,11 +123,10 @@ export default class Tocada {
     this.usePointerEvents = pointerEvents;
 
     if (this.usePointerEvents) {
-      const passiveOpts: AddEventListenerOptions = { passive: false };
-      this.element.addEventListener("pointerdown", this.handlePointerDown, passiveOpts);
-      this.element.addEventListener("pointermove", this.handlePointerMove, passiveOpts);
-      this.element.addEventListener("pointerup", this.handlePointerUp, passiveOpts);
-      this.element.addEventListener("pointercancel", this.handlePointerCancel, passiveOpts);
+      this.element.addEventListener("pointerdown", this.handlePointerDown, POINTER_LISTENER_OPTIONS);
+      this.element.addEventListener("pointermove", this.handlePointerMove, POINTER_LISTENER_OPTIONS);
+      this.element.addEventListener("pointerup", this.handlePointerUp, POINTER_LISTENER_OPTIONS);
+      this.element.addEventListener("pointercancel", this.handlePointerCancel, POINTER_LISTENER_OPTIONS);
     } else {
       this.element.addEventListener("touchstart", this.handleTouchStart, false);
       this.element.addEventListener("touchmove", this.handleTouchMove, false);
@@ -138,10 +140,10 @@ export default class Tocada {
         this.releasePointerCaptureSafe(id);
       }
       this.pointerById.clear();
-      this.element.removeEventListener("pointerdown", this.handlePointerDown);
-      this.element.removeEventListener("pointermove", this.handlePointerMove);
-      this.element.removeEventListener("pointerup", this.handlePointerUp);
-      this.element.removeEventListener("pointercancel", this.handlePointerCancel);
+      this.element.removeEventListener("pointerdown", this.handlePointerDown, POINTER_LISTENER_OPTIONS);
+      this.element.removeEventListener("pointermove", this.handlePointerMove, POINTER_LISTENER_OPTIONS);
+      this.element.removeEventListener("pointerup", this.handlePointerUp, POINTER_LISTENER_OPTIONS);
+      this.element.removeEventListener("pointercancel", this.handlePointerCancel, POINTER_LISTENER_OPTIONS);
     } else {
       this.element?.removeEventListener("touchstart", this.handleTouchStart);
       this.element?.removeEventListener("touchmove", this.handleTouchMove);
