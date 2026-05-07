@@ -27,9 +27,11 @@ swipeArea.destroy();
 
 For **TouchEvent-only** input (legacy mobile pipelines), use `useTouchEvents` instead—it forces `pointerEvents: false`.
 
+`new Tocada(selectorOrElement)` is the same as passing **`{ pointerEvents: true }`** (Pointer Events). Use **`{ pointerEvents: false }`** or **`useTouchEvents(...)`** only when you need the legacy touch stack.
+
 ## Available Events
 
-### Single Touch Events
+### Single-contact events
 
 | Event | Description |
 |-------|-------------|
@@ -45,11 +47,11 @@ For **TouchEvent-only** input (legacy mobile pipelines), use `useTouchEvents` in
 | `swipeclockwise` | Circular swipe in clockwise direction |
 | `swipecounterclockwise` | Circular swipe in counter-clockwise direction |
 
-### Multi-Touch Events
+### Multi-contact events
 
 | Event | Description |
 |-------|-------------|
-| `gesture` | Fires before any multi-touch gesture |
+| `gesture` | Fires before any multi-contact gesture (`touchCount` is active pointer / touch count) |
 | `pinch` | Two fingers moving closer together |
 | `spread` | Two fingers moving apart |
 | `rotate` | Two-finger rotation (fires before directional) |
@@ -200,13 +202,13 @@ Each event type provides a `detail` object with relevant data.
 
 ```javascript
 {
-  touchCount,        // Number of simultaneous touches
+  touchCount,        // Active contacts (pointers or touches, depending on pipeline)
 }
 ```
 
-## High Precision Touch Tracking
+## High precision tracking
 
-When `useHighPrecision: true` is enabled, Tocada provides additional element tracking arrays to fill gaps between discrete `touchmove` events during rapid swipes. This is useful for:
+When `useHighPrecision: true` is enabled, Tocada provides additional element tracking arrays to fill gaps between discrete move samples (`pointermove` or `touchmove`, depending on pipeline) during rapid swipes. This is useful for:
 
 - **Visual feedback**: Highlighting all elements in a swipe path
 - **Game interactions**: Detecting all tiles/elements touched during a gesture
@@ -232,16 +234,16 @@ When `useHighPrecision: true`, three additional arrays are provided:
 
 - **`touchedPathElements`**: Elements found by sampling coordinates from the `touchPath` array. This fills gaps by checking elements at points along the recorded touch path.
 
-- **`interpolatedTouchedElements`**: Elements found via interpolation between consecutive `touchmove` events. Samples points every 5-10px along the interpolation path to catch elements that might have been missed.
+- **`interpolatedTouchedElements`**: Elements found via interpolation between consecutive move events. Samples points every 5–10px along the interpolation path to catch elements that might have been missed.
 
 - **`derivedTouchedElements`**: **Recommended to use**. A combined array that merges `touchedElements`, `interpolatedTouchedElements`, and `touchedPathElements`, then orders them chronologically by their position in the touch path and deduplicates them.
 
 ### Performance Considerations
 
 High precision tracking adds computational overhead as it:
-- Samples multiple points along the touch path
+- Samples multiple points along the path
 - Calls `document.elementFromPoint()` for each sampled point
-- Performs interpolation calculations during touch moves
+- Performs interpolation calculations during move events
 
 Only enable this feature when you need complete element coverage. For most use cases, the standard `touchedElements` array is sufficient.
 
@@ -251,21 +253,22 @@ For custom tracking needs or edge cases, you can use native browser APIs:
 
 - **`document.elementFromPoint(x, y)`**: Get the topmost element at specific coordinates
 - **`document.elementsFromPoint(x, y)`**: Get all elements at coordinates (in stack order)
-- **`TouchEvent.touches`**: Access raw touch data during move events
-- **`TouchEvent.changedTouches`**: Touches that changed in the current event
+- **`PointerEvent`**: When using the default pointer pipeline, `pressure`, `pointerId`, and coalesced move events are available from the browser.
+- **`TouchEvent.touches`** (touch pipeline only): Access raw touch data during move events
+- **`TouchEvent.changedTouches`** (touch pipeline only): Touches that changed in the current event
 
 These native APIs can be useful for:
 - Custom interpolation logic
 - Handling edge cases not covered by Tocada
-- Building specialized touch tracking features
-- Debugging touch event behavior
+- Building specialized gesture tracking features
+- Debugging pointer or touch behavior
 
 ## TypeScript Support
 
 Tocada is written in TypeScript and exports all types:
 
 ```typescript
-import {
+import Tocada, {
   usePointerEvents,
   useTouchEvents,
   ITocadaOptions,

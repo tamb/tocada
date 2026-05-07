@@ -71,8 +71,8 @@ export function classifyTapGesture(
 
 The main `Tocada` class in `index.ts` should only:
 
-- Set up and tear down event listeners
-- Maintain state between touch events
+- Set up and tear down event listeners (Pointer Events by default, or Touch Events when `pointerEvents: false`)
+- Maintain state between input events (pointer or touch pipeline)
 - Call detector functions to classify gestures
 - Dispatch custom events
 
@@ -180,7 +180,7 @@ Update `src/index.ts`:
 
 1. Import the detector function
 2. Add any necessary state variables
-3. Call the detector in the appropriate touch handler
+3. Call the detector from the appropriate pointer or touch handler in `index.ts`
 4. Dispatch the event with details
 
 ### Step 5: Update Documentation
@@ -223,7 +223,7 @@ describe("classifyRotation", () => {
 
 ```typescript
 // Good
-it("should return null when touch count is below minimum", () => { });
+it("should return null when contact count is below minimum", () => { });
 
 // Avoid
 it("works", () => { });

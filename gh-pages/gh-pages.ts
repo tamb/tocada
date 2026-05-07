@@ -154,15 +154,15 @@ for (let i = 0; i < gridSize * gridSize; i++) {
   touchArea.appendChild(square);
 }
 
-// Pointer events by default (mouse, pen, touch); see useTouchEvents() for touch-only.
-let touchHandler = new Tocada(touchArea, {
+// Default: Pointer Events (mouse, pen, touch). For TouchEvent-only, use useTouchEvents() from the bundle.
+let gestureHandler = new Tocada(touchArea, {
   useHighPrecision: (useHighPrecisionCheckbox as HTMLInputElement).checked,
 });
 
 useHighPrecisionCheckbox.addEventListener("change", (e) => {
   const useHighPrecision = (e.target as HTMLInputElement).checked;
-  touchHandler.destroy();
-  touchHandler = new Tocada(touchArea, { useHighPrecision });
+  gestureHandler.destroy();
+  gestureHandler = new Tocada(touchArea, { useHighPrecision });
 }); 
 
 // Track recent events (keep only 2 most recent)
@@ -172,9 +172,9 @@ const recentEvents: Array<{
   timestamp: Date;
 }> = [];
 
-// All available touch events
+// All gesture event names (custom events on touchArea)
 const eventNames = [
-  // Single touch events
+  // Single-contact
   "tap",
   "doubletap",
   "press",
@@ -186,7 +186,7 @@ const eventNames = [
   "swiperight",
   "swipeclockwise",
   "swipecounterclockwise",
-  // Multi-touch events
+  // Multi-contact
   "gesture",
   "pinch",
   "spread",
@@ -251,7 +251,7 @@ function formatEventDetails(eventType: string, detail: any): string {
     parts.push(`Scale: ${detail.scale.toFixed(2)}`);
   }
   if (detail.touchCount !== undefined) {
-    parts.push(`Touches: ${detail.touchCount}`);
+    parts.push(`Contacts: ${detail.touchCount}`);
   }
   if (detail.arc !== undefined) {
     parts.push(`Arc: ${Math.round(detail.arc)}°`);
@@ -266,7 +266,7 @@ function updateEventDisplay() {
   
   if (recentEvents.length === 0) {
     eventDisplay.innerHTML =
-      '<p class="text-muted">Touch the grid above to see events here...</p>';
+      '<p class="text-muted">Use the grid above to see gesture events here…</p>';
     return;
   }
 
@@ -286,7 +286,7 @@ function updateEventDisplay() {
   eventDisplay.innerHTML = html;
 }
 
-// Listen to all touch events
+// Listen for all gesture custom events
 eventNames.forEach((eventName) => {
   touchArea.addEventListener(eventName, (e: Event) => {
     const customEvent = e as CustomEvent;

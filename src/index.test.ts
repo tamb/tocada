@@ -2,20 +2,85 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import Tocada, { useTouchEvents, usePointerEvents, DEFAULT_THRESHOLDS } from "./index";
 
 describe("useTouchEvents", () => {
-  it("should return Tocada instance", () => {
+  it("returns Tocada instance wired to TouchEvent pipeline only", () => {
     expect(useTouchEvents("body")).toBeInstanceOf(Tocada);
+  });
+});
+
+describe("usePointerEvents", () => {
+  it("returns Tocada instance", () => {
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const t = usePointerEvents(el);
+    expect(t).toBeInstanceOf(Tocada);
+    t.destroy();
+    document.body.removeChild(el);
+  });
+});
+
+describe("Input pipeline selection", () => {
+  function spyListenerTypes(el: HTMLElement) {
+    const types: string[] = [];
+    const orig = el.addEventListener.bind(el);
+    el.addEventListener = (
+      type: string,
+      listener: EventListenerOrEventListenerObject,
+      options?: boolean | AddEventListenerOptions
+    ) => {
+      types.push(type);
+      return orig(type, listener, options as never);
+    };
+    return {
+      types,
+      restore: () => {
+        el.addEventListener = orig;
+      },
+    };
+  }
+
+  it("registers pointer listeners when pointerEvents is omitted (default)", () => {
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const { types, restore } = spyListenerTypes(el);
+    const t = new Tocada(el);
+    restore();
+    expect(types).toEqual(["pointerdown", "pointermove", "pointerup", "pointercancel"]);
+    t.destroy();
+    document.body.removeChild(el);
+  });
+
+  it("useTouchEvents registers touch listeners only", () => {
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const { types, restore } = spyListenerTypes(el);
+    const t = useTouchEvents(el);
+    restore();
+    expect(types).toEqual(["touchstart", "touchmove", "touchend"]);
+    t.destroy();
+    document.body.removeChild(el);
+  });
+
+  it("pointerEvents: false matches useTouchEvents listener set", () => {
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const { types, restore } = spyListenerTypes(el);
+    const t = new Tocada(el, { pointerEvents: false });
+    restore();
+    expect(types).toEqual(["touchstart", "touchmove", "touchend"]);
+    t.destroy();
+    document.body.removeChild(el);
   });
 });
 
 describe("Tocada", () => {
   it("accepts query string as first argument", () => {
-    const touchEvents = new Tocada("body");
-    expect(touchEvents.element).toBeInstanceOf(HTMLElement);
+    const instance = new Tocada("body");
+    expect(instance.element).toBeInstanceOf(HTMLElement);
   });
 
   it("accepts HTMLElement as first argument", () => {
-    const touchEvents = new Tocada(document.querySelector("body") as HTMLElement);
-    expect(touchEvents.element).toBeInstanceOf(HTMLElement);
+    const instance = new Tocada(document.querySelector("body") as HTMLElement);
+    expect(instance.element).toBeInstanceOf(HTMLElement);
   });
 
   it("accepts custom thresholds", () => {
@@ -138,16 +203,7 @@ function createMockPointerEvent(
   return ev;
 }
 
-describe("Pointer Events mode", () => {
-  it("usePointerEvents returns Tocada instance", () => {
-    const el = document.createElement("div");
-    document.body.appendChild(el);
-    const t = usePointerEvents(el);
-    expect(t).toBeInstanceOf(Tocada);
-    t.destroy();
-    document.body.removeChild(el);
-  });
-
+describe("Pointer pipeline (default Tocada)", () => {
   it("fires generic gesture before rotate for two-pointer rotation", () => {
     const element = document.createElement("div");
     document.body.appendChild(element);
@@ -200,7 +256,7 @@ describe("Pointer Events mode", () => {
   });
 });
 
-describe("Gesture Event Priority", () => {
+describe("Gesture Event Priority (TouchEvent pipeline)", () => {
   let element: HTMLElement;
   let tocada: Tocada;
 
