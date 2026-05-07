@@ -56,6 +56,13 @@ export interface ITocadaOptions {
   thresholds?: IThresholds;
   eventPrefix?: string;
   useHighPrecision?: boolean;
+  /**
+   * When true (default), listens with Pointer Events (pointerdown / pointermove / pointerup / pointercancel)
+   * for mouse, pen, and touch via the unified pointer model. Set to `false` for legacy TouchEvent-only input.
+   * Do not attach both pipelines to the same element (double events).
+   * Pointer move listeners use `{ passive: false }` so preventDefault can block native scrolling while tracking.
+   */
+  pointerEvents?: boolean;
 }
 
 export interface ICoords {
