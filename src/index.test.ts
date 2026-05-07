@@ -151,7 +151,7 @@ describe("Pointer Events mode", () => {
   it("fires generic gesture before rotate for two-pointer rotation", () => {
     const element = document.createElement("div");
     document.body.appendChild(element);
-    const tocada = new Tocada(element, { pointerEvents: true });
+    const tocada = new Tocada(element);
 
     const events: string[] = [];
     element.addEventListener("gesture", () => events.push("gesture"));
@@ -177,7 +177,7 @@ describe("Pointer Events mode", () => {
   it("fires pinch when rotation is minimal (pointer)", () => {
     const element = document.createElement("div");
     document.body.appendChild(element);
-    const tocada = new Tocada(element, { pointerEvents: true });
+    const tocada = new Tocada(element);
 
     const events: string[] = [];
     element.addEventListener("rotate", () => events.push("rotate"));
@@ -207,7 +207,7 @@ describe("Gesture Event Priority", () => {
   beforeEach(() => {
     element = document.createElement("div");
     document.body.appendChild(element);
-    tocada = new Tocada(element);
+    tocada = new Tocada(element, { pointerEvents: false });
   });
 
   afterEach(() => {
@@ -341,6 +341,7 @@ describe("Gesture Event Priority", () => {
 
     // Create Tocada with higher rotation threshold
     const customTocada = new Tocada(element, {
+      pointerEvents: false,
       thresholds: {
         rotateMinAngle: 45, // Higher threshold
       },
@@ -381,6 +382,7 @@ describe("Gesture Event Priority", () => {
 
     // Create Tocada with higher pinch/spread threshold
     const customTocada = new Tocada(element, {
+      pointerEvents: false,
       thresholds: {
         pinchSpreadMinDistance: 50, // Higher threshold
       },

@@ -1,4 +1,4 @@
-import { useTouchEvents } from "../dist/index.js";
+import Tocada from "../dist/index.js";
 
 const touchArea = document.getElementById("touchArea");
 const eventDisplay = document.getElementById("eventDisplay");
@@ -154,13 +154,15 @@ for (let i = 0; i < gridSize * gridSize; i++) {
   touchArea.appendChild(square);
 }
 
-// Initialize touch events
-let touchHandler = useTouchEvents(touchArea, { useHighPrecision: (useHighPrecisionCheckbox as HTMLInputElement).checked });
+// Pointer events by default (mouse, pen, touch); see useTouchEvents() for touch-only.
+let touchHandler = new Tocada(touchArea, {
+  useHighPrecision: (useHighPrecisionCheckbox as HTMLInputElement).checked,
+});
 
 useHighPrecisionCheckbox.addEventListener("change", (e) => {
   const useHighPrecision = (e.target as HTMLInputElement).checked;
   touchHandler.destroy();
-  touchHandler = useTouchEvents(touchArea, { useHighPrecision });
+  touchHandler = new Tocada(touchArea, { useHighPrecision });
 }); 
 
 // Track recent events (keep only 2 most recent)

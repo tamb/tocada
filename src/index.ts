@@ -92,7 +92,7 @@ export default class Tocada {
   private eventPrefix: string = "";
   private useHighPrecision: boolean = false;
   private usePointerEvents: boolean = false;
-  /** Active pointers when {@link usePointerEvents} is true (key = pointerId). */
+  /** Active pointers when using the Pointer Events pipeline (key = pointerId). */
   private pointerById = new Map<number, { x: number; y: number; pressure: number }>();
 
   constructor(queryStringOrElement: string | HTMLElement, options: ITocadaOptions = {}) {
@@ -109,7 +109,7 @@ export default class Tocada {
       thresholds = {},
       eventPrefix = "",
       useHighPrecision = false,
-      pointerEvents = false,
+      pointerEvents = true,
     } = options;
     this.thresholds = {
       ...DEFAULT_THRESHOLDS,
@@ -904,14 +904,15 @@ export default class Tocada {
   }
 }
 
+/** Touch-only pipeline (`touchstart` / `touchmove` / `touchend`). Overrides default pointer mode. */
 export function useTouchEvents(
   queryStringOrElement: string | HTMLElement,
   options: ITocadaOptions = {}
 ) {
-  return new Tocada(queryStringOrElement, options);
+  return new Tocada(queryStringOrElement, { ...options, pointerEvents: false });
 }
 
-/** Same as {@link useTouchEvents} with `{ pointerEvents: true }` for Pointer Event input. */
+/** Explicit Pointer Events pipeline (default for {@link Tocada} and {@link usePointerEvents}). */
 export function usePointerEvents(
   queryStringOrElement: string | HTMLElement,
   options: Omit<ITocadaOptions, "pointerEvents"> = {}

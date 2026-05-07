@@ -1,7 +1,7 @@
 {
   "name": "tocada",
-  "version": "2.3.0",
-  "description": "Touch events with ease! (Inspired by the wonderful Tocca.js library). Written in Typescript with love",
+  "version": "3.0.0",
+  "description": "Pointer and touch gestures with ease! (Inspired by the wonderful Tocca.js library). Written in Typescript with love",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -40,6 +40,8 @@
   "homepage": "https://github.com/tamb/tocada.js",
   "keywords": [
     "touch",
+    "pointer",
+    "pointer-events",
     "events",
     "mobile",
     "swipe",

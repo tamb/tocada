@@ -1,6 +1,6 @@
 # Tocada JS
 
-Touch Events with ease
+Pointer and touch gestures with ease
 
 ## Installation
 
@@ -11,10 +11,10 @@ npm install tocada
 ## Basic Usage
 
 ```javascript
-import { useTouchEvents } from "tocada";
+import { usePointerEvents } from "tocada";
 
-// Pass a query selector or HTMLElement
-const swipeArea = useTouchEvents("#my-element");
+// Pass a query selector or HTMLElement (Pointer Events by default: mouse, pen, touch)
+const swipeArea = usePointerEvents("#my-element");
 
 // Listen for events
 swipeArea.element.addEventListener("swipe", (e) => {
@@ -24,6 +24,8 @@ swipeArea.element.addEventListener("swipe", (e) => {
 // Clean up when done
 swipeArea.destroy();
 ```
+
+For **TouchEvent-only** input (legacy mobile pipelines), use `useTouchEvents` instead—it forces `pointerEvents: false`.
 
 ## Available Events
 
@@ -62,16 +64,16 @@ swipeArea.destroy();
 ## Configuration Options
 
 ```javascript
-import { useTouchEvents } from "tocada";
+import { usePointerEvents } from "tocada";
 
-const swipeArea = useTouchEvents("#my-element", {
+const swipeArea = usePointerEvents("#my-element", {
   // Prefix all event names (e.g., "myapp-swipe", "myapp-tap")
   eventPrefix: "myapp-",
-  
-  // Enable high-precision element tracking (fills gaps between touchmove events)
+
+  // Enable high-precision element tracking (fills gaps between move events)
   // Adds computational overhead - use when you need complete element coverage
   useHighPrecision: true,
-  
+
   // Customize detection thresholds
   thresholds: {
     swipeThreshold: 50,        // Min distance for swipe (px)
@@ -213,7 +215,7 @@ When `useHighPrecision: true` is enabled, Tocada provides additional element tra
 ### Usage
 
 ```javascript
-const swipeArea = useTouchEvents("#my-element", {
+const swipeArea = usePointerEvents("#my-element", {
   useHighPrecision: true
 });
 
@@ -263,7 +265,8 @@ These native APIs can be useful for:
 Tocada is written in TypeScript and exports all types:
 
 ```typescript
-import { 
+import {
+  usePointerEvents,
   useTouchEvents,
   ITocadaOptions,
   ISwipeEventDetails,
