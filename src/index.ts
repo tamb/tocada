@@ -12,7 +12,7 @@ import {
   ICoords,
   DEFAULT_THRESHOLDS,
 } from "./types";
-import { getDistanceBetweenTouchPoints } from "./utils";
+import { getDistanceBetweenCoords, getDistanceBetweenTouchPoints } from "./utils";
 import { classifyTapGesture, isDoubleTap, isTapMovementValid } from "./detectors/tap";
 import { detectCircularDirection, getCircularSwipeInfo } from "./detectors/circular-swipe";
 // import {
@@ -30,6 +30,24 @@ import {
   classifyPinchSpread,
   buildPinchSpreadEventDetails,
 } from "./detectors/pinch-spread";
+
+function readPointerPressure(e: PointerEvent): number {
+  if (typeof e.pressure === "number" && e.pressure > 0) return e.pressure;
+  if (e.pointerType === "mouse") return 0.5;
+  return 0;
+}
+
+function coalescedPointerSlices(e: PointerEvent): PointerEvent[] {
+  const getCoalesced = e.getCoalescedEvents;
+  if (typeof getCoalesced === "function") {
+    const list = getCoalesced.call(e) as PointerEvent[] | undefined;
+    if (list && list.length > 0) return list;
+  }
+  return [e];
+}
+
+/** Same object must be used for add + remove (passive/capture must match or listeners leak). */
+const POINTER_LISTENER_OPTIONS: AddEventListenerOptions = { passive: false };
 
 export default class Tocada {
   element: HTMLElement | null;
@@ -76,6 +94,9 @@ export default class Tocada {
   private thresholds!: Required<typeof DEFAULT_THRESHOLDS>;
   private eventPrefix: string = "";
   private useHighPrecision: boolean = false;
+  private usePointerEvents: boolean = false;
+  /** Active pointers when using the Pointer Events pipeline (key = pointerId). */
+  private pointerById = new Map<number, { x: number; y: number; pressure: number }>();
 
   constructor(queryStringOrElement: string | HTMLElement, options: ITocadaOptions = {}) {
     this.element =
@@ -87,23 +108,47 @@ export default class Tocada {
       return;
     }
 
-    const { thresholds = {}, eventPrefix = "", useHighPrecision = false } = options;
+    const {
+      thresholds = {},
+      eventPrefix = "",
+      useHighPrecision = false,
+      pointerEvents = true,
+    } = options;
     this.thresholds = {
       ...DEFAULT_THRESHOLDS,
       ...thresholds,
     };
     this.eventPrefix = eventPrefix;
     this.useHighPrecision = useHighPrecision;
+    this.usePointerEvents = pointerEvents;
 
-    this.element.addEventListener("touchstart", this.handleTouchStart, false);
-    this.element.addEventListener("touchmove", this.handleTouchMove, false);
-    this.element.addEventListener("touchend", this.handleTouchEnd, false);
+    if (this.usePointerEvents) {
+      this.element.addEventListener("pointerdown", this.handlePointerDown, POINTER_LISTENER_OPTIONS);
+      this.element.addEventListener("pointermove", this.handlePointerMove, POINTER_LISTENER_OPTIONS);
+      this.element.addEventListener("pointerup", this.handlePointerUp, POINTER_LISTENER_OPTIONS);
+      this.element.addEventListener("pointercancel", this.handlePointerCancel, POINTER_LISTENER_OPTIONS);
+    } else {
+      this.element.addEventListener("touchstart", this.handleTouchStart, false);
+      this.element.addEventListener("touchmove", this.handleTouchMove, false);
+      this.element.addEventListener("touchend", this.handleTouchEnd, false);
+    }
   }
 
   destroy = () => {
-    this.element?.removeEventListener("touchstart", this.handleTouchStart);
-    this.element?.removeEventListener("touchmove", this.handleTouchMove);
-    this.element?.removeEventListener("touchend", this.handleTouchEnd);
+    if (this.usePointerEvents && this.element) {
+      for (const id of [...this.pointerById.keys()]) {
+        this.releasePointerCaptureSafe(id);
+      }
+      this.pointerById.clear();
+      this.element.removeEventListener("pointerdown", this.handlePointerDown, POINTER_LISTENER_OPTIONS);
+      this.element.removeEventListener("pointermove", this.handlePointerMove, POINTER_LISTENER_OPTIONS);
+      this.element.removeEventListener("pointerup", this.handlePointerUp, POINTER_LISTENER_OPTIONS);
+      this.element.removeEventListener("pointercancel", this.handlePointerCancel, POINTER_LISTENER_OPTIONS);
+    } else {
+      this.element?.removeEventListener("touchstart", this.handleTouchStart);
+      this.element?.removeEventListener("touchmove", this.handleTouchMove);
+      this.element?.removeEventListener("touchend", this.handleTouchEnd);
+    }
     this.clearTimers();
   };
 
@@ -113,6 +158,80 @@ export default class Tocada {
       this.holdTimer = null;
     }
   };
+
+  private beginSingleContactSession(clientX: number, clientY: number, pressure: number) {
+    this.startX = clientX;
+    this.startY = clientY;
+    this.startTime = Date.now();
+    this.startPressure = pressure;
+    this.startingElement = document.elementsFromPoint(this.startX, this.startY)[0] as HTMLElement;
+    this.holdFired = false;
+
+    this.touchedElements.push(this.startingElement);
+    this.touchPath = [{ x: this.startX, y: this.startY, time: this.startTime }];
+
+    if (this.useHighPrecision) {
+      this.lastTouchPosition = { x: this.startX, y: this.startY };
+    }
+
+    this.holdTimer = setTimeout(() => {
+      this.holdFired = true;
+      this.dispatchTapEvent("hold", {
+        duration: this.thresholds.holdMinTime,
+        pressure,
+        element: this.startingElement,
+        coords: { x: this.startX, y: this.startY },
+        startTime: this.startTime,
+        endTime: Date.now(),
+      });
+    }, this.thresholds.holdMinTime);
+  }
+
+  /** Single-contact move sampling (linear path, interpolation, circular-swipe path). */
+  private sampleSingleContactAlongPath(clientX: number, clientY: number) {
+    const x = clientX;
+    const y = clientY;
+    const element = document.elementFromPoint(x, y) as HTMLElement;
+    if (element && this.element && this.element.contains(element) && element !== this.element) {
+      this.touchedElements.push(element);
+    }
+
+    if (this.useHighPrecision && !this.isMultiTouch && this.lastTouchPosition) {
+      const distance = Math.sqrt(
+        Math.pow(x - this.lastTouchPosition.x, 2) + Math.pow(y - this.lastTouchPosition.y, 2)
+      );
+      const sampleInterval = Math.max(5, Math.min(10, distance / 10));
+      const steps = Math.floor(distance / sampleInterval);
+
+      for (let i = 1; i <= steps; i++) {
+        const t = i / (steps + 1);
+        const sampleX = this.lastTouchPosition.x + (x - this.lastTouchPosition.x) * t;
+        const sampleY = this.lastTouchPosition.y + (y - this.lastTouchPosition.y) * t;
+        const sampleElement = document.elementFromPoint(sampleX, sampleY) as HTMLElement;
+
+        if (
+          sampleElement &&
+          this.element &&
+          this.element.contains(sampleElement) &&
+          sampleElement !== this.element
+        ) {
+          this.interpolatedTouchedElements.push(sampleElement);
+        }
+      }
+    }
+
+    if (this.useHighPrecision && !this.isMultiTouch) {
+      this.lastTouchPosition = { x, y };
+    }
+
+    if (!this.isMultiTouch) {
+      this.touchPath.push({
+        x,
+        y,
+        time: Date.now(),
+      });
+    }
+  }
 
   private handleTouchStart = (event: TouchEvent) => {
     // Use event.touches.length as the source of truth for current touch count
@@ -175,55 +294,12 @@ export default class Tocada {
   };
 
   private handleTouchMove = (event: TouchEvent) => {
-    // Prevent default behavior to prevent scrolling
     event.preventDefault();
+    if (event.touches.length === 0) return;
     const x = event.touches[0].clientX;
     const y = event.touches[0].clientY;
-    const element = document.elementFromPoint(x, y) as HTMLElement;
-    // Only add elements that are descendants of the touch area (not the touch area itself)
-    if (element && this.element && this.element.contains(element) && element !== this.element) {
-      this.touchedElements.push(element);
-    }
 
-    // High precision interpolation
-    if (this.useHighPrecision && !this.isMultiTouch && this.lastTouchPosition) {
-      const distance = Math.sqrt(
-        Math.pow(x - this.lastTouchPosition.x, 2) + Math.pow(y - this.lastTouchPosition.y, 2)
-      );
-      // Sample points every 5-10px along the interpolation path
-      const sampleInterval = Math.max(5, Math.min(10, distance / 10));
-      const steps = Math.floor(distance / sampleInterval);
-      
-      for (let i = 1; i <= steps; i++) {
-        const t = i / (steps + 1);
-        const sampleX = this.lastTouchPosition.x + (x - this.lastTouchPosition.x) * t;
-        const sampleY = this.lastTouchPosition.y + (y - this.lastTouchPosition.y) * t;
-        const sampleElement = document.elementFromPoint(sampleX, sampleY) as HTMLElement;
-        
-        if (
-          sampleElement &&
-          this.element &&
-          this.element.contains(sampleElement) &&
-          sampleElement !== this.element
-        ) {
-          this.interpolatedTouchedElements.push(sampleElement);
-        }
-      }
-    }
-
-    // Update last touch position for interpolation
-    if (this.useHighPrecision && !this.isMultiTouch) {
-      this.lastTouchPosition = { x, y };
-    }
-
-    // Track touch path for circular swipe detection (single touch)
-    if (!this.isMultiTouch) {
-      this.touchPath.push({
-        x,
-        y,
-        time: Date.now(),
-      });
-    }
+    this.sampleSingleContactAlongPath(x, y);
 
     if (this.isMultiTouch) {
       this.handleGestureMove(event);
@@ -248,52 +324,18 @@ export default class Tocada {
 
   private handleSwipeStart = (event: TouchEvent) => {
     const touch = event.touches[0];
-    this.startX = touch.clientX;
-    this.startY = touch.clientY;
-    this.startTime = Date.now();
-    this.startPressure = touch.force || 0;
-    this.startingElement = document.elementsFromPoint(this.startX, this.startY)[0] as HTMLElement;
-    this.holdFired = false;
-
-    this.touchedElements.push(this.startingElement);
-    this.touchPath = [{ x: this.startX, y: this.startY, time: this.startTime }];
-    
-    // Initialize last touch position for interpolation
-    if (this.useHighPrecision) {
-      this.lastTouchPosition = { x: this.startX, y: this.startY };
-    }
-
-    // Start hold timer
-    this.holdTimer = setTimeout(() => {
-      this.holdFired = true;
-      this.dispatchTapEvent("hold", {
-        duration: this.thresholds.holdMinTime,
-        pressure: touch.force || 0,
-        element: this.startingElement,
-        coords: { x: this.startX, y: this.startY },
-        startTime: this.startTime,
-        endTime: Date.now(),
-      });
-    }, this.thresholds.holdMinTime);
+    this.beginSingleContactSession(touch.clientX, touch.clientY, touch.force || 0);
   };
 
-  private handleSwipeEnd = (event: TouchEvent) => {
-    this.clearTimers();
-
+  private finalizeSingleContactEnd(clientX: number, clientY: number, pressure: number) {
     if (!this.isMultiTouch && this.touchCount === 1) {
-      const touch = event.changedTouches[0];
       const endTime = Date.now();
       const duration = endTime - this.startTime;
       const startCoords: ICoords = { x: this.startX, y: this.startY };
-      const endCoords: ICoords = { x: touch.clientX, y: touch.clientY };
+      const endCoords: ICoords = { x: clientX, y: clientY };
 
       // Check for tap/press/hold (low movement)
-      const isTapValid = isTapMovementValid(
-        this.startX,
-        this.startY,
-        touch.clientX,
-        touch.clientY
-      );
+      const isTapValid = isTapMovementValid(this.startX, this.startY, clientX, clientY);
 
       if (isTapValid && !this.holdFired) {
         // Classify the tap gesture
@@ -310,11 +352,11 @@ export default class Tocada {
           // Also check position proximity for double tap
           const tapPositionValid =
             this.lastTapTime === 0 ||
-            isTapMovementValid(this.lastTapX, this.lastTapY, touch.clientX, touch.clientY, 30);
+            isTapMovementValid(this.lastTapX, this.lastTapY, clientX, clientY, 30);
 
           const tapDetails: ITapEventDetails = {
             duration,
-            pressure: touch.force || 0,
+            pressure,
             element: this.startingElement,
             coords: endCoords,
             startTime: this.startTime,
@@ -328,13 +370,13 @@ export default class Tocada {
             this.lastTapTime = 0; // Reset to prevent triple-tap triggering double
           } else {
             this.lastTapTime = endTime;
-            this.lastTapX = touch.clientX;
-            this.lastTapY = touch.clientY;
+            this.lastTapX = clientX;
+            this.lastTapY = clientY;
           }
         } else if (tapType === "press") {
           this.dispatchTapEvent("press", {
             duration,
-            pressure: touch.force || 0,
+            pressure,
             element: this.startingElement,
             coords: endCoords,
             startTime: this.startTime,
@@ -391,11 +433,8 @@ export default class Tocada {
       );
 
       if (swipeAnalysis.isSwipe && swipeAnalysis.direction) {
-        this.endPressure = touch.force || 0;
-        const endingElement = document.elementFromPoint(
-          touch.clientX,
-          touch.clientY
-        ) as HTMLElement;
+        this.endPressure = pressure;
+        const endingElement = document.elementFromPoint(clientX, clientY) as HTMLElement;
 
         const detail = buildSwipeEventDetails(
           startCoords,
@@ -427,9 +466,15 @@ export default class Tocada {
         this.reset();
       }
     }
+  }
+
+  private handleSwipeEnd = (event: TouchEvent) => {
+    this.clearTimers();
+    const touch = event.changedTouches[0];
+    this.finalizeSingleContactEnd(touch.clientX, touch.clientY, touch.force || 0);
   };
 
-  private handleGestureStart = (_event: TouchEvent) => {
+  private handleGestureStart = (_event?: TouchEvent) => {
     this.isMultiTouch = true;
   };
 
@@ -451,87 +496,28 @@ export default class Tocada {
     }
   };
 
-  private handleGestureEnd = (event: TouchEvent) => {
-    // Get end positions for all touches
-    // Combine event.touches (still active) and event.changedTouches (just ended)
-    const endPositions: ICoords[] = [];
-    
-    // Add touches that are still active
-    for (let i = 0; i < event.touches.length; i++) {
-      endPositions.push({
-        x: event.touches[i].clientX,
-        y: event.touches[i].clientY,
-      });
-    }
-    
-    // Add touches that just ended
-    for (let i = 0; i < event.changedTouches.length; i++) {
-      endPositions.push({
-        x: event.changedTouches[i].clientX,
-        y: event.changedTouches[i].clientY,
-      });
-    }
-
-    // TODO: Implement better palm swipe detection
-    // Handle palm swipe
-    // if (this.isPalmSwipe && this.palmStartPositions.length >= this.thresholds.palmMinTouches) {
-    //   const direction = getPalmSwipeDirection(this.palmStartPositions, endPositions);
-    //   const duration = Date.now() - this.startTime;
-    //   const metrics = getPalmSwipeMetrics(this.palmStartPositions, endPositions, duration);
-
-    //   if (direction && metrics.distance > this.thresholds.swipeThreshold) {
-    //     const palmDetails: IPalmSwipeEventDetails = {
-    //       direction,
-    //       touchCount: this.palmStartPositions.length,
-    //       distance: metrics.distance,
-    //       velocity: metrics.velocity,
-    //       startPositions: this.palmStartPositions,
-    //       endPositions,
-    //     };
-
-    //     // Note: High precision fields are not available for palm swipes (multi-touch)
-    //     // as touchPath is only tracked for single-touch gestures
-
-    //     // Fire generic palm swipe first
-    //     this.dispatchPalmSwipeEvent("swipepalm", palmDetails);
-
-    //     // Then fire directional variant
-    //     const directionEvent = `swipepalm${direction}` as TGestureType;
-    //     this.dispatchPalmSwipeEvent(directionEvent, palmDetails);
-    //   }
-
-    //   this.reset();
-    //   return;
-    // }
-
-    // Fire generic "gesture" event first (before any specific gesture detection)
-    // This is like keydown - a generic hook for developers
+  private finalizeMultiContactGesture(endPositions: ICoords[]) {
     this.dispatchGestureEvent("gesture", {
       touchCount: this.touchCount,
     });
 
-    // Handle two-finger gestures (rotation and pinch/spread)
-    // Use latest tracked positions if available, otherwise use endPositions
     let endTouch1: ICoords | null = null;
     let endTouch2: ICoords | null = null;
-    
+
     if (this.latestTouch1 && this.latestTouch2) {
-      // Use the latest tracked positions from move events
       endTouch1 = this.latestTouch1;
       endTouch2 = this.latestTouch2;
     } else if (endPositions.length >= 2) {
-      // Fall back to end positions if we don't have latest positions
       endTouch1 = endPositions[0];
       endTouch2 = endPositions[1];
     }
-    
+
     if (
       this.gestureStartTouch1 &&
       this.gestureStartTouch2 &&
       endTouch1 &&
       endTouch2
     ) {
-      // Detect rotation first - prioritize rotation over pinch/spread
       const rotationResult = detectRotation(
         this.gestureStartTouch1,
         this.gestureStartTouch2,
@@ -540,7 +526,6 @@ export default class Tocada {
         this.thresholds.rotateMinAngle
       );
 
-      // If rotation is significant, fire rotation events and skip pinch/spread
       if (rotationResult.direction) {
         const rotateDetails: IRotateEventDetails = {
           angle: rotationResult.angle,
@@ -550,23 +535,18 @@ export default class Tocada {
           centerPoint: rotationResult.centerPoint,
         };
 
-        // Fire generic rotate first
         this.dispatchRotateEvent("rotate", rotateDetails);
 
-        // Then fire directional variant
         if (rotationResult.direction === "clockwise") {
           this.dispatchRotateEvent("rotateclockwise", rotateDetails);
         } else {
           this.dispatchRotateEvent("rotatecounterclockwise", rotateDetails);
         }
 
-        // Rotation takes priority - skip pinch/spread detection
         this.reset();
         return;
       }
 
-      // Only check for pinch/spread if rotation was NOT significant
-      // Build pinch/spread event details
       const pinchSpreadDetails = buildPinchSpreadEventDetails(
         this.gestureStartTouch1,
         this.gestureStartTouch2,
@@ -574,14 +554,11 @@ export default class Tocada {
         endTouch2
       );
 
-      // Calculate distance change
       const distanceChange = Math.abs(
         this.latestGestureDistance - this.gestureStartDistance
       );
 
-      // Only fire pinch/spread if distance change meets minimum threshold
       if (distanceChange >= this.thresholds.pinchSpreadMinDistance) {
-        // Handle pinch/spread using the detector
         const pinchSpreadGesture = classifyPinchSpread(
           this.gestureStartDistance,
           this.latestGestureDistance
@@ -596,6 +573,165 @@ export default class Tocada {
     }
 
     this.reset();
+  }
+
+  private handleGestureEnd = (event: TouchEvent) => {
+    const endPositions: ICoords[] = [];
+
+    for (let i = 0; i < event.touches.length; i++) {
+      endPositions.push({
+        x: event.touches[i].clientX,
+        y: event.touches[i].clientY,
+      });
+    }
+
+    for (let i = 0; i < event.changedTouches.length; i++) {
+      endPositions.push({
+        x: event.changedTouches[i].clientX,
+        y: event.changedTouches[i].clientY,
+      });
+    }
+
+    // TODO: palm swipe — endPositions retained for future palm detector wiring
+
+    this.finalizeMultiContactGesture(endPositions);
+  };
+
+  private getOrderedActivePointerCoordsPair(): [ICoords, ICoords] | null {
+    if (this.pointerById.size < 2) return null;
+    const ids = [...this.pointerById.keys()].sort((a, b) => a - b);
+    const p0 = this.pointerById.get(ids[0])!;
+    const p1 = this.pointerById.get(ids[1])!;
+    return [
+      { x: p0.x, y: p0.y },
+      { x: p1.x, y: p1.y },
+    ];
+  }
+
+  private syncPointerTwoFingerGeometryFromMap() {
+    const pair = this.getOrderedActivePointerCoordsPair();
+    if (!pair) return;
+    this.latestGestureDistance = getDistanceBetweenCoords(pair[0], pair[1]);
+    this.latestTouch1 = pair[0];
+    this.latestTouch2 = pair[1];
+  }
+
+  private tryPointerCapture(e: PointerEvent) {
+    try {
+      this.element?.setPointerCapture(e.pointerId);
+    } catch {
+      /* noop */
+    }
+  }
+
+  private releasePointerCaptureSafe(id: number) {
+    try {
+      this.element?.releasePointerCapture(id);
+    } catch {
+      /* noop */
+    }
+  }
+
+  private handlePointerDown = (e: PointerEvent) => {
+    if (!this.element) return;
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    const target = e.target;
+    if (!(target instanceof Node) || !this.element.contains(target)) return;
+
+    const pressure = readPointerPressure(e);
+    this.pointerById.set(e.pointerId, { x: e.clientX, y: e.clientY, pressure });
+    this.tryPointerCapture(e);
+
+    this.activeTouches = this.pointerById.size;
+    this.touchCount = this.pointerById.size;
+
+    if (this.activeTouches > 1) {
+      this.isMultiTouch = true;
+      this.clearTimers();
+
+      if (this.pointerById.size === 2) {
+        const pair = this.getOrderedActivePointerCoordsPair();
+        if (pair) {
+          this.gestureStartDistance = getDistanceBetweenCoords(pair[0], pair[1]);
+          this.gestureStartTouch1 = { ...pair[0] };
+          this.gestureStartTouch2 = { ...pair[1] };
+          this.latestTouch1 = { ...pair[0] };
+          this.latestTouch2 = { ...pair[1] };
+          this.latestGestureDistance = this.gestureStartDistance;
+        }
+      }
+      this.handleGestureStart();
+    } else {
+      this.isMultiTouch = false;
+      this.beginSingleContactSession(e.clientX, e.clientY, pressure);
+    }
+  };
+
+  private handlePointerMove = (e: PointerEvent) => {
+    if (!this.pointerById.has(e.pointerId)) return;
+    if (e.pointerType === "mouse" && e.buttons === 0) return;
+
+    e.preventDefault();
+
+    if (this.pointerById.size >= 2) {
+      const slices = coalescedPointerSlices(e);
+      for (const pe of slices) {
+        if (!this.pointerById.has(pe.pointerId)) continue;
+        this.pointerById.set(pe.pointerId, {
+          x: pe.clientX,
+          y: pe.clientY,
+          pressure: readPointerPressure(pe),
+        });
+      }
+      this.syncPointerTwoFingerGeometryFromMap();
+      return;
+    }
+
+    const slices = coalescedPointerSlices(e);
+    for (const pe of slices) {
+      if (pe.pointerId !== e.pointerId) continue;
+      this.pointerById.set(pe.pointerId, {
+        x: pe.clientX,
+        y: pe.clientY,
+        pressure: readPointerPressure(pe),
+      });
+      this.sampleSingleContactAlongPath(pe.clientX, pe.clientY);
+    }
+  };
+
+  private handlePointerUpOrCancel = (e: PointerEvent) => {
+    if (!this.pointerById.has(e.pointerId)) return;
+
+    this.pointerById.set(e.pointerId, {
+      x: e.clientX,
+      y: e.clientY,
+      pressure: readPointerPressure(e),
+    });
+
+    const contactsBeforeEnd = this.pointerById.size;
+
+    if (contactsBeforeEnd >= 2) {
+      this.syncPointerTwoFingerGeometryFromMap();
+      this.finalizeMultiContactGesture([]);
+      this.pointerById.delete(e.pointerId);
+      this.touchCount = 0;
+    } else if (contactsBeforeEnd === 1) {
+      this.clearTimers();
+      this.finalizeSingleContactEnd(e.clientX, e.clientY, readPointerPressure(e));
+      this.pointerById.delete(e.pointerId);
+      this.touchCount = 0;
+    }
+
+    this.activeTouches = this.pointerById.size;
+    this.releasePointerCaptureSafe(e.pointerId);
+  };
+
+  private handlePointerUp = (e: PointerEvent) => {
+    this.handlePointerUpOrCancel(e);
+  };
+
+  private handlePointerCancel = (e: PointerEvent) => {
+    this.handlePointerUpOrCancel(e);
   };
 
   /**
@@ -770,11 +906,20 @@ export default class Tocada {
   }
 }
 
+/** Touch-only pipeline (`touchstart` / `touchmove` / `touchend`). Overrides default pointer mode. */
 export function useTouchEvents(
   queryStringOrElement: string | HTMLElement,
   options: ITocadaOptions = {}
 ) {
-  return new Tocada(queryStringOrElement, options);
+  return new Tocada(queryStringOrElement, { ...options, pointerEvents: false });
+}
+
+/** Explicit Pointer Events pipeline (default for {@link Tocada} and {@link usePointerEvents}). */
+export function usePointerEvents(
+  queryStringOrElement: string | HTMLElement,
+  options: Omit<ITocadaOptions, "pointerEvents"> = {}
+) {
+  return new Tocada(queryStringOrElement, { ...options, pointerEvents: true });
 }
 
 // Re-export types for consumers
