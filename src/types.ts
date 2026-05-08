@@ -63,6 +63,13 @@ export interface ITocadaOptions {
    * Pointer move listeners use `{ passive: false }` so preventDefault can block native scrolling while tracking.
    */
   pointerEvents?: boolean;
+  /**
+   * Inline `touch-action` on the target element so the browser suppresses default pan/pinch on that surface during gestures.
+   * - `undefined` (default): set `none`, restored on {@link Tocada.destroy}
+   * - `false`: do not change `touch-action`
+   * - other strings (e.g. `manipulation`, `pan-y`): set that value, restored on destroy
+   */
+  touchAction?: false | string;
 }
 
 export interface ICoords {

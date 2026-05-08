@@ -30,17 +30,36 @@ export default class Tocada {
     private thresholds;
     private eventPrefix;
     private useHighPrecision;
+    private usePointerEvents;
+    /** Prior inline `touch-action` if this instance set one; `null` if {@link ITocadaOptions.touchAction} was `false`. */
+    private touchActionBefore;
+    /** Active pointers when using the Pointer Events pipeline (key = pointerId). */
+    private pointerById;
     constructor(queryStringOrElement: string | HTMLElement, options?: ITocadaOptions);
     destroy: () => void;
     private clearTimers;
+    private beginSingleContactSession;
+    /** Single-contact move sampling (linear path, interpolation, circular-swipe path). */
+    private sampleSingleContactAlongPath;
     private handleTouchStart;
     private handleTouchMove;
     private handleTouchEnd;
     private handleSwipeStart;
+    private finalizeSingleContactEnd;
     private handleSwipeEnd;
     private handleGestureStart;
     private handleGestureMove;
+    private finalizeMultiContactGesture;
     private handleGestureEnd;
+    private getOrderedActivePointerCoordsPair;
+    private syncPointerTwoFingerGeometryFromMap;
+    private tryPointerCapture;
+    private releasePointerCaptureSafe;
+    private handlePointerDown;
+    private handlePointerMove;
+    private handlePointerUpOrCancel;
+    private handlePointerUp;
+    private handlePointerCancel;
     /**
      * Gets all unique elements touched along a touch path by sampling points.
      * Samples points from touchPath and finds elements at those coordinates.
@@ -60,6 +79,9 @@ export default class Tocada {
     private dispatchGestureEvent;
     private reset;
 }
+/** Touch-only pipeline (`touchstart` / `touchmove` / `touchend`). Overrides default pointer mode. */
 export declare function useTouchEvents(queryStringOrElement: string | HTMLElement, options?: ITocadaOptions): Tocada;
+/** Explicit Pointer Events pipeline (default for {@link Tocada} and {@link usePointerEvents}). */
+export declare function usePointerEvents(queryStringOrElement: string | HTMLElement, options?: Omit<ITocadaOptions, "pointerEvents">): Tocada;
 export * from "./types";
 //# sourceMappingURL=index.d.ts.map

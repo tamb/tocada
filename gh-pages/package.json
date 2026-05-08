@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --host",
     "dev:local": "vite --host",
-    "dev:tunnel": "concurrently \"vite --host\" \"lt --port 5173\" \"curl https://loca.lt/mytunnelpassword\"",
+    "dev:tunnel": "concurrently \"vite --host\" \"lt --port 5173 --bypass-tunnel-reminder\"",
     "dev:ngrok": "concurrently \"vite --host\" \"ngrok http 5173\"",
     "build": "vite build",
     "preview": "vite preview"
@@ -17,9 +17,6 @@
   "devDependencies": {
     "concurrently": "^9.2.1",
     "localtunnel": "^2.0.2",
-    "vite": "^5.0.0"
-  },
-  "dependencies": {
-    "tocada": "file:../tocada-2.3.0.tgz"
+    "vite": "^8.0.11"
   }
 }
