@@ -1,21 +1,24 @@
 name: Deploy demo to GitHub Pages
 
+# Pushes gh-pages/dist to the gh-pages branch. Requires:
+# Settings → Pages → Source "Deploy from a branch" → gh-pages / (root).
+# If you use "GitHub Actions" as the Pages source instead, replace this workflow
+# with upload-pages-artifact + deploy-pages (artifact does not update the branch).
+
 on:
   push:
     branches: [main, master]
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
   cancel-in-progress: false
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,16 +40,12 @@ jobs:
           bun install --frozen-lockfile
           bun run build
 
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: gh-pages/dist
+      - name: Verify site output
+        run: test -f gh-pages/dist/index.html
 
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - uses: actions/deploy-pages@v4
-        id: deployment
+      - name: Publish site to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: gh-pages/dist
+          force_orphan: true

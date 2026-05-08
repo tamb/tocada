@@ -2,7 +2,8 @@
 node_modules
 npm-debug.log
 .DS_Store
-dist/
+# Built npm bundle only at repo root (do not ignore gh-pages/dist).
+/dist/
 .parcel-cache/
 .parcel-cache
 .tgz
