@@ -1,0 +1,52 @@
+name: Deploy demo to GitHub Pages
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install and build library
+        run: |
+          bun install
+          bun run build
+
+      - name: Install and build demo
+        working-directory: gh-pages
+        env:
+          VITE_BASE_PATH: /${{ github.event.repository.name }}/
+        run: |
+          bun install --frozen-lockfile
+          bun run build
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: gh-pages/dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/deploy-pages@v4
+        id: deployment

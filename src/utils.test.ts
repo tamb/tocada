@@ -1,9 +1,19 @@
 import { describe, it, expect } from "bun:test";
-import { difference, getDistanceBetweenTouchPoints } from "./utils";
+import { difference, getDistanceBetweenTouchPoints, getDistanceBetweenCoords } from "./utils";
 
 describe("difference", () => {
   it("should return difference", () => {
     expect(difference(1, 2)).toBe(1);
+  });
+});
+
+describe("getDistanceBetweenCoords", () => {
+  it("is 0 for identical points", () => {
+    expect(getDistanceBetweenCoords({ x: 3, y: 4 }, { x: 3, y: 4 })).toBe(0);
+  });
+
+  it("uses Euclidean distance", () => {
+    expect(getDistanceBetweenCoords({ x: 0, y: 0 }, { x: 3, y: 4 })).toBe(5);
   });
 });
 

@@ -188,6 +188,28 @@ describe("detectCircularDirection", () => {
     expect(detectCircularDirection(counterClockwisePath, 90)).toBe("counterclockwise");
   });
 
+  it("detects counter-clockwise when consistency is between strict and relaxed gates", () => {
+    const centerX = 50;
+    const centerY = 50;
+    const radius = 40;
+    const amp = 1.5;
+    const path: ITouchPoint[] = [];
+    for (let i = 0; i <= 40; i++) {
+      const t = i / 40;
+      const angle = -t * Math.PI;
+      const x =
+        centerX + radius * Math.cos(angle) + Math.sin(i * 0.75) * amp;
+      const y =
+        centerY + radius * Math.sin(angle) + Math.cos(i * 0.75) * amp;
+      path.push({ x, y, time: i * 10 });
+    }
+    const { totalArc, netArc } = calculateCumulativeArc(path);
+    const consistency = totalArc > 0 ? Math.abs(netArc) / totalArc : 0;
+    expect(consistency).toBeLessThan(0.7);
+    expect(consistency).toBeGreaterThanOrEqual(0.45);
+    expect(detectCircularDirection(path, 90)).toBe("counterclockwise");
+  });
+
   it("should return null if arc is below minimum threshold", () => {
     // Small arc that doesn't meet 90 degree minimum
     const smallArcPath: ITouchPoint[] = [];
@@ -228,6 +250,17 @@ describe("detectCircularDirection", () => {
 });
 
 describe("getCircularSwipeInfo", () => {
+  it("returns null direction when path is too short for arc sum", () => {
+    expect(getCircularSwipeInfo([]).direction).toBeNull();
+    expect(getCircularSwipeInfo([{ x: 0, y: 0, time: 0 }]).direction).toBeNull();
+    expect(
+      getCircularSwipeInfo([
+        { x: 0, y: 0, time: 0 },
+        { x: 10, y: 0, time: 10 },
+      ]).direction
+    ).toBeNull();
+  });
+
   it("should return arc and direction info", () => {
     const clockwisePath: ITouchPoint[] = [];
     const centerX = 50;

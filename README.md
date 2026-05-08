@@ -1,6 +1,14 @@
 # Tocada JS
 
+[![npm version](https://img.shields.io/npm/v/tocada.svg)](https://www.npmjs.com/package/tocada)
+[![npm downloads](https://img.shields.io/npm/dm/tocada.svg)](https://www.npmjs.com/package/tocada)
+[![CI](https://github.com/tamb/tocada/actions/workflows/ci.yml/badge.svg)](https://github.com/tamb/tocada/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/tamb/tocada/graph/badge.svg)](https://codecov.io/gh/tamb/tocada)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/tamb/tocada/blob/HEAD/LICENSE)
+
 Pointer and touch gestures with ease
+
+For the most up-to-date documentation, see the **[Tocada GitHub repository](https://github.com/tamb/tocada)**.
 
 ## Installation
 
@@ -76,6 +84,11 @@ const swipeArea = usePointerEvents("#my-element", {
   // Adds computational overhead - use when you need complete element coverage
   useHighPrecision: true,
 
+  // Inline touch-action on the target element (default: "none").
+  // Suppresses native pan/pinch on that surface so gestures stay accurate; restored on destroy().
+  // Use false to leave touch-action unchanged, or a CSS value (e.g. "manipulation", "pan-y").
+  touchAction: "none",
+
   // Customize detection thresholds
   thresholds: {
     swipeThreshold: 50,        // Min distance for swipe (px)
@@ -87,6 +100,7 @@ const swipeArea = usePointerEvents("#my-element", {
     // NOT YET IMPLEMENTED palmMinTouches: 3,         // Min touch points for palm swipe
     // NOT YET IMPLEMENTED palmLineTolerance: 50,     // Tolerance for palm line detection (px)
     rotateMinAngle: 15,        // Min angle for rotation (degrees)
+    pinchSpreadMinDistance: 20, // Min finger distance change for pinch/spread (px)
   }
 });
 
@@ -95,6 +109,18 @@ swipeArea.element.addEventListener("myapp-swipe", (e) => {
   console.log("Swiped!", e.detail);
 });
 ```
+
+### `touch-action` and scrolling
+
+By default, Tocada sets **`touch-action: none`** on the element’s **inline style** so the browser does not steal the gesture for native pan/zoom while you track pointers or touches. The previous inline value is **restored when you call `destroy()`** (or the property is removed if there was none).
+
+| Option | Behavior |
+|--------|----------|
+| *(omitted)* | Sets `touch-action: none` |
+| `touchAction: false` | Does not change `touch-action` (use when the region must scroll or zoom normally) |
+| `touchAction: "pan-y"` (etc.) | Sets that keyword; still restored on `destroy()` |
+
+This applies to `new Tocada(...)`, `usePointerEvents(...)`, and `useTouchEvents(...)`.
 
 ## Event Details
 
@@ -141,6 +167,8 @@ Each event type provides a `detail` object with relevant data.
 ```
 
 ### Circular Swipe Events (`swipeclockwise`, `swipecounterclockwise`)
+
+Detection uses sampled move points plus the **lift position** (pointer up / touch end), and **denoises** dense or jittery input so direction stays stable. Tune sensitivity with `thresholds.circularSwipeMinArc` (default `90` degrees).
 
 ```javascript
 {
@@ -271,7 +299,7 @@ Tocada is written in TypeScript and exports all types:
 import Tocada, {
   usePointerEvents,
   useTouchEvents,
-  ITocadaOptions,
+  ITocadaOptions, // includes touchAction?: false | string
   ISwipeEventDetails,
   ITapEventDetails,
   IRotateEventDetails,

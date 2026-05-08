@@ -5,6 +5,15 @@ describe("useTouchEvents", () => {
   it("returns Tocada instance wired to TouchEvent pipeline only", () => {
     expect(useTouchEvents("body")).toBeInstanceOf(Tocada);
   });
+
+  it("forwards touchAction option", () => {
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const t = useTouchEvents(el, { touchAction: false });
+    expect(el.style.touchAction).toBe("");
+    t.destroy();
+    document.body.removeChild(el);
+  });
 });
 
 describe("usePointerEvents", () => {
@@ -14,6 +23,16 @@ describe("usePointerEvents", () => {
     const t = usePointerEvents(el);
     expect(t).toBeInstanceOf(Tocada);
     t.destroy();
+    document.body.removeChild(el);
+  });
+
+  it("forwards touchAction option", () => {
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const t = usePointerEvents(el, { touchAction: "pan-x" });
+    expect(el.style.touchAction).toBe("pan-x");
+    t.destroy();
+    expect(el.style.touchAction).toBe("");
     document.body.removeChild(el);
   });
 });
@@ -168,6 +187,14 @@ describe("Tocada", () => {
     expect(tocada.element).toBeNull();
     expect(errorCalled).toBe(true);
 
+    console.error = consoleSpy;
+  });
+
+  it("destroy does not throw when element was not found", () => {
+    const consoleSpy = console.error;
+    console.error = () => {};
+    const tocada = new Tocada("#non-existent-element");
+    expect(() => tocada.destroy()).not.toThrow();
     console.error = consoleSpy;
   });
 });
