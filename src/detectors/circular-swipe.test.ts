@@ -5,6 +5,7 @@ import {
   calculateCumulativeArc,
   detectCircularDirection,
   getCircularSwipeInfo,
+  prepareTouchPathForCircularSwipe,
 } from "./circular-swipe";
 import { ITouchPoint } from "../types";
 
@@ -91,6 +92,42 @@ describe("calculateCumulativeArc", () => {
     const result = calculateCumulativeArc(counterClockwisePath);
     expect(result.totalArc).toBeGreaterThan(45);
     expect(result.netArc).toBeLessThan(0); // negative = counter-clockwise on screen
+  });
+});
+
+describe("prepareTouchPathForCircularSwipe", () => {
+  it("appends end sample when it differs from the last move point", () => {
+    const path: ITouchPoint[] = [
+      { x: 0, y: 0, time: 0 },
+      { x: 10, y: 0, time: 10 },
+    ];
+    const prepared = prepareTouchPathForCircularSwipe(path, 20, 0, 20);
+    expect(prepared.length).toBeGreaterThanOrEqual(2);
+    expect(prepared[prepared.length - 1]).toEqual({ x: 20, y: 0, time: 20 });
+  });
+
+  it("dedupes dense pointer-style samples so CCW arc still detects", () => {
+    const centerX = 50;
+    const centerY = 50;
+    const radius = 40;
+    const dense: ITouchPoint[] = [];
+    let t = 0;
+    for (let i = 0; i <= 60; i++) {
+      const angle = -(i / 60) * Math.PI;
+      const x = centerX + radius * Math.cos(angle);
+      const y = centerY + radius * Math.sin(angle);
+      for (let s = 0; s < 4; s++) {
+        dense.push({
+          x: x + s * 0.15,
+          y: y + s * 0.1,
+          time: t++,
+        });
+      }
+    }
+    const end = dense[dense.length - 1]!;
+    const prepared = prepareTouchPathForCircularSwipe(dense, end.x + 1.2, end.y - 0.4, t + 1);
+    expect(prepared.length).toBeLessThan(dense.length);
+    expect(detectCircularDirection(prepared, 90)).toBe("counterclockwise");
   });
 });
 

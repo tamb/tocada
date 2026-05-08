@@ -72,6 +72,50 @@ describe("Input pipeline selection", () => {
   });
 });
 
+describe("touchAction", () => {
+  it("defaults to inline touch-action none", () => {
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    expect(el.style.touchAction).toBe("");
+    const t = new Tocada(el);
+    expect(el.style.touchAction).toBe("none");
+    t.destroy();
+    expect(el.style.touchAction).toBe("");
+    document.body.removeChild(el);
+  });
+
+  it("restore prior inline touch-action on destroy", () => {
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    el.style.touchAction = "pan-y";
+    const t = new Tocada(el);
+    expect(el.style.touchAction).toBe("none");
+    t.destroy();
+    expect(el.style.touchAction).toBe("pan-y");
+    document.body.removeChild(el);
+  });
+
+  it("touchAction: false does not change style", () => {
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const t = new Tocada(el, { touchAction: false });
+    expect(el.style.touchAction).toBe("");
+    t.destroy();
+    expect(el.style.touchAction).toBe("");
+    document.body.removeChild(el);
+  });
+
+  it("touchAction string sets that value", () => {
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const t = new Tocada(el, { touchAction: "manipulation" });
+    expect(el.style.touchAction).toBe("manipulation");
+    t.destroy();
+    expect(el.style.touchAction).toBe("");
+    document.body.removeChild(el);
+  });
+});
+
 describe("Tocada", () => {
   it("accepts query string as first argument", () => {
     const instance = new Tocada("body");

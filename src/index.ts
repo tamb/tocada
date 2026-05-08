@@ -14,7 +14,7 @@ import {
 } from "./types";
 import { getDistanceBetweenCoords, getDistanceBetweenTouchPoints } from "./utils";
 import { classifyTapGesture, isDoubleTap, isTapMovementValid } from "./detectors/tap";
-import { detectCircularDirection, getCircularSwipeInfo } from "./detectors/circular-swipe";
+import { detectCircularDirection, getCircularSwipeInfo, prepareTouchPathForCircularSwipe } from "./detectors/circular-swipe";
 // import {
 //   isPalmSwipePattern,
 //   getPalmSwipeDirection,
@@ -95,6 +95,8 @@ export default class Tocada {
   private eventPrefix: string = "";
   private useHighPrecision: boolean = false;
   private usePointerEvents: boolean = false;
+  /** Prior inline `touch-action` if this instance set one; `null` if {@link ITocadaOptions.touchAction} was `false`. */
+  private touchActionBefore: string | null = null;
   /** Active pointers when using the Pointer Events pipeline (key = pointerId). */
   private pointerById = new Map<number, { x: number; y: number; pressure: number }>();
 
@@ -113,6 +115,7 @@ export default class Tocada {
       eventPrefix = "",
       useHighPrecision = false,
       pointerEvents = true,
+      touchAction: touchActionOption,
     } = options;
     this.thresholds = {
       ...DEFAULT_THRESHOLDS,
@@ -121,6 +124,12 @@ export default class Tocada {
     this.eventPrefix = eventPrefix;
     this.useHighPrecision = useHighPrecision;
     this.usePointerEvents = pointerEvents;
+
+    if (touchActionOption !== false) {
+      const value = touchActionOption ?? "none";
+      this.touchActionBefore = this.element.style.touchAction;
+      this.element.style.touchAction = value;
+    }
 
     if (this.usePointerEvents) {
       this.element.addEventListener("pointerdown", this.handlePointerDown, POINTER_LISTENER_OPTIONS);
@@ -135,6 +144,14 @@ export default class Tocada {
   }
 
   destroy = () => {
+    if (this.element && this.touchActionBefore !== null) {
+      if (this.touchActionBefore === "") {
+        this.element.style.removeProperty("touch-action");
+      } else {
+        this.element.style.touchAction = this.touchActionBefore;
+      }
+      this.touchActionBefore = null;
+    }
     if (this.usePointerEvents && this.element) {
       for (const id of [...this.pointerById.keys()]) {
         this.releasePointerCaptureSafe(id);
@@ -389,15 +406,22 @@ export default class Tocada {
         return;
       }
 
-      // Check for circular swipe
-      if (this.touchPath.length >= 5) {
+      const pathForCircular = prepareTouchPathForCircularSwipe(
+        this.touchPath,
+        clientX,
+        clientY,
+        endTime
+      );
+
+      // Check for circular swipe (denoised path + lift sample so arc detection matches real strokes)
+      if (pathForCircular.length >= 3) {
         const circularDirection = detectCircularDirection(
-          this.touchPath,
+          pathForCircular,
           this.thresholds.circularSwipeMinArc
         );
 
         if (circularDirection) {
-          const circularInfo = getCircularSwipeInfo(this.touchPath);
+          const circularInfo = getCircularSwipeInfo(pathForCircular);
           const circularDetails: ICircularSwipeEventDetails = {
             direction: circularDirection,
             arc: circularInfo.arc,
