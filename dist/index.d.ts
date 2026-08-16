@@ -33,17 +33,24 @@ export default class Tocada {
     private usePointerEvents;
     /** Prior inline `touch-action` if this instance set one; `null` if {@link ITocadaOptions.touchAction} was `false`. */
     private touchActionBefore;
+    /** True while a single-contact session has been started and not yet finalized or aborted. */
+    private singleContactActive;
     /** Active pointers when using the Pointer Events pipeline (key = pointerId). */
     private pointerById;
     constructor(queryStringOrElement: string | HTMLElement, options?: ITocadaOptions);
     destroy: () => void;
     private clearTimers;
+    /** Blocks text/image highlight and the long-press callout while a hold is in progress. */
+    private preventNativeHighlight;
+    /** Abort without dispatching — used for pointercancel / touchcancel and destroy mid-gesture. */
+    private abortActiveGesture;
     private beginSingleContactSession;
     /** Single-contact move sampling (linear path, interpolation, circular-swipe path). */
     private sampleSingleContactAlongPath;
     private handleTouchStart;
     private handleTouchMove;
     private handleTouchEnd;
+    private handleTouchCancel;
     private handleSwipeStart;
     private finalizeSingleContactEnd;
     private handleSwipeEnd;

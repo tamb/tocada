@@ -52,14 +52,6 @@ const GESTURE_LISTENER_OPTIONS: AddEventListenerOptions = { passive: false };
 /** Movement beyond this distance cancels in-progress tap/press/hold. */
 const TAP_MOVEMENT_THRESHOLD_PX = 10;
 
-/** Whether move handlers should preventDefault for the given touch-action option. */
-export function shouldSuppressNativeGestures(
-  touchAction: ITocadaOptions["touchAction"]
-): boolean {
-  if (touchAction === false) return false;
-  return (touchAction ?? "none") === "none";
-}
-
 function elementAtPoint(x: number, y: number): HTMLElement | null {
   try {
     if (typeof document.elementsFromPoint === "function") {
@@ -123,8 +115,6 @@ export default class Tocada {
   private usePointerEvents: boolean = false;
   /** Prior inline `touch-action` if this instance set one; `null` if {@link ITocadaOptions.touchAction} was `false`. */
   private touchActionBefore: string | null = null;
-  /** When false, move handlers must not preventDefault (native pan/zoom stays available). */
-  private shouldPreventDefault: boolean = true;
   /** True while a single-contact session has been started and not yet finalized or aborted. */
   private singleContactActive: boolean = false;
   /** Active pointers when using the Pointer Events pipeline (key = pointerId). */
@@ -155,13 +145,13 @@ export default class Tocada {
     this.useHighPrecision = useHighPrecision;
     this.usePointerEvents = pointerEvents;
 
-    this.shouldPreventDefault = shouldSuppressNativeGestures(touchActionOption);
-
     if (touchActionOption !== false) {
       const value = touchActionOption ?? "none";
       this.touchActionBefore = this.element.style.touchAction;
       this.element.style.touchAction = value;
     }
+
+    this.element.addEventListener("selectstart", this.preventNativeHighlight, GESTURE_LISTENER_OPTIONS);
 
     if (this.usePointerEvents) {
       this.element.addEventListener("pointerdown", this.handlePointerDown, GESTURE_LISTENER_OPTIONS);
@@ -190,11 +180,13 @@ export default class Tocada {
         this.releasePointerCaptureSafe(id);
       }
       this.pointerById.clear();
+      this.element.removeEventListener("selectstart", this.preventNativeHighlight, GESTURE_LISTENER_OPTIONS);
       this.element.removeEventListener("pointerdown", this.handlePointerDown, GESTURE_LISTENER_OPTIONS);
       this.element.removeEventListener("pointermove", this.handlePointerMove, GESTURE_LISTENER_OPTIONS);
       this.element.removeEventListener("pointerup", this.handlePointerUp, GESTURE_LISTENER_OPTIONS);
       this.element.removeEventListener("pointercancel", this.handlePointerCancel, GESTURE_LISTENER_OPTIONS);
     } else {
+      this.element?.removeEventListener("selectstart", this.preventNativeHighlight, GESTURE_LISTENER_OPTIONS);
       this.element?.removeEventListener("touchstart", this.handleTouchStart, GESTURE_LISTENER_OPTIONS);
       this.element?.removeEventListener("touchmove", this.handleTouchMove, GESTURE_LISTENER_OPTIONS);
       this.element?.removeEventListener("touchend", this.handleTouchEnd, GESTURE_LISTENER_OPTIONS);
@@ -208,6 +200,11 @@ export default class Tocada {
       clearTimeout(this.holdTimer);
       this.holdTimer = null;
     }
+  };
+
+  /** Blocks text/image highlight and the long-press callout while a hold is in progress. */
+  private preventNativeHighlight = (event: Event) => {
+    event.preventDefault();
   };
 
   /** Abort without dispatching — used for pointercancel / touchcancel and destroy mid-gesture. */
@@ -312,6 +309,7 @@ export default class Tocada {
   }
 
   private handleTouchStart = (event: TouchEvent) => {
+    event.preventDefault();
     // Use event.touches.length as the source of truth for current touch count
     this.activeTouches = event.touches.length;
     this.touchCount = event.touches.length;
@@ -374,9 +372,7 @@ export default class Tocada {
   };
 
   private handleTouchMove = (event: TouchEvent) => {
-    if (this.shouldPreventDefault) {
-      event.preventDefault();
-    }
+    event.preventDefault();
     if (event.touches.length === 0) return;
     const x = event.touches[0].clientX;
     const y = event.touches[0].clientY;
@@ -745,6 +741,7 @@ export default class Tocada {
     const target = e.target;
     if (!(target instanceof Node) || !this.element.contains(target)) return;
 
+    e.preventDefault();
     const pressure = readPointerPressure(e);
     this.pointerById.set(e.pointerId, { x: e.clientX, y: e.clientY, pressure });
     this.tryPointerCapture(e);
@@ -779,9 +776,7 @@ export default class Tocada {
     if (!this.pointerById.has(e.pointerId)) return;
     if (e.pointerType === "mouse" && e.buttons === 0) return;
 
-    if (this.shouldPreventDefault) {
-      e.preventDefault();
-    }
+    e.preventDefault();
 
     if (this.pointerById.size >= 2) {
       const slices = coalescedPointerSlices(e);

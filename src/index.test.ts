@@ -3,7 +3,6 @@ import Tocada, {
   useTouchEvents,
   usePointerEvents,
   DEFAULT_THRESHOLDS,
-  shouldSuppressNativeGestures,
 } from "./index";
 
 describe("useTouchEvents", () => {
@@ -68,7 +67,7 @@ describe("Input pipeline selection", () => {
     const { types, restore } = spyListenerTypes(el);
     const t = new Tocada(el);
     restore();
-    expect(types).toEqual(["pointerdown", "pointermove", "pointerup", "pointercancel"]);
+    expect(types).toEqual(["selectstart", "pointerdown", "pointermove", "pointerup", "pointercancel"]);
     t.destroy();
     document.body.removeChild(el);
   });
@@ -79,7 +78,7 @@ describe("Input pipeline selection", () => {
     const { types, restore } = spyListenerTypes(el);
     const t = useTouchEvents(el);
     restore();
-    expect(types).toEqual(["touchstart", "touchmove", "touchend", "touchcancel"]);
+    expect(types).toEqual(["selectstart", "touchstart", "touchmove", "touchend", "touchcancel"]);
     t.destroy();
     document.body.removeChild(el);
   });
@@ -90,7 +89,7 @@ describe("Input pipeline selection", () => {
     const { types, restore } = spyListenerTypes(el);
     const t = new Tocada(el, { pointerEvents: false });
     restore();
-    expect(types).toEqual(["touchstart", "touchmove", "touchend", "touchcancel"]);
+    expect(types).toEqual(["selectstart", "touchstart", "touchmove", "touchend", "touchcancel"]);
     t.destroy();
     document.body.removeChild(el);
   });
@@ -725,12 +724,71 @@ describe("Gesture lifecycle bugs", () => {
     expect(swipeLengths[1]).toBe(swipeLengths[0]);
   });
 
-  it("does not suppress native gestures when touchAction is false or a pan value", () => {
-    expect(shouldSuppressNativeGestures(undefined)).toBe(true);
-    expect(shouldSuppressNativeGestures("none")).toBe(true);
-    expect(shouldSuppressNativeGestures(false)).toBe(false);
-    expect(shouldSuppressNativeGestures("pan-y")).toBe(false);
-    expect(shouldSuppressNativeGestures("manipulation")).toBe(false);
+  it("calls preventDefault on touchstart, touchmove, and selectstart so hold does not highlight", () => {
+    const el = mount({ pointerEvents: false });
+    const prevented: string[] = [];
+
+    const start = createMockTouchEvent("touchstart", [createMockTouch(100, 100, 0)], [
+      createMockTouch(100, 100, 0),
+    ]);
+    start.preventDefault = () => {
+      prevented.push("touchstart");
+    };
+    el.dispatchEvent(start);
+
+    const move = createMockTouchEvent("touchmove", [createMockTouch(102, 100, 0)], [
+      createMockTouch(102, 100, 0),
+    ]);
+    move.preventDefault = () => {
+      prevented.push("touchmove");
+    };
+    el.dispatchEvent(move);
+
+    const select = new Event("selectstart", { bubbles: true, cancelable: true });
+    let selectPrevented = false;
+    select.preventDefault = () => {
+      selectPrevented = true;
+    };
+    el.dispatchEvent(select);
+
+    expect(prevented).toContain("touchstart");
+    expect(prevented).toContain("touchmove");
+    expect(selectPrevented).toBe(true);
+  });
+
+  it("emits swipecounterclockwise for an upward CCW scoop, not swipeup", () => {
+    const el = mount({ pointerEvents: false, thresholds: { swipeThreshold: 50, circularSwipeMinArc: 90 } });
+    const events: string[] = [];
+    el.addEventListener("swipe", () => events.push("swipe"));
+    el.addEventListener("swipeup", () => events.push("swipeup"));
+    el.addEventListener("swipecounterclockwise", () => events.push("swipecounterclockwise"));
+    el.addEventListener("swipeclockwise", () => events.push("swipeclockwise"));
+
+    const cx = 100;
+    const cy = 110;
+    const r = 90;
+    const points: Array<{ x: number; y: number }> = [];
+    for (let i = 0; i <= 20; i++) {
+      const t = i / 20;
+      const angle = Math.PI / 2 - t * Math.PI;
+      points.push({
+        x: cx + r * Math.cos(angle) + Math.sin(i * 1.7) * 4,
+        y: cy + r * Math.sin(angle) + Math.cos(i * 1.3) * 4,
+      });
+    }
+
+    const first = createMockTouch(points[0]!.x, points[0]!.y, 0);
+    el.dispatchEvent(createMockTouchEvent("touchstart", [first], [first]));
+    for (let i = 1; i < points.length; i++) {
+      const t = createMockTouch(points[i]!.x, points[i]!.y, 0);
+      el.dispatchEvent(createMockTouchEvent("touchmove", [t], [t]));
+    }
+    const last = createMockTouch(points[points.length - 1]!.x, points[points.length - 1]!.y, 0);
+    el.dispatchEvent(createMockTouchEvent("touchend", [], [last]));
+
+    expect(events).toContain("swipecounterclockwise");
+    expect(events).not.toContain("swipeup");
+    expect(events).not.toContain("swipe");
   });
 
   it("does not emit hold after touchcancel clears the session", async () => {
