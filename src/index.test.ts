@@ -684,11 +684,12 @@ describe("Gesture lifecycle bugs", () => {
     expect(events).toEqual(["hold"]);
   });
 
-  it("still recognizes a tap after a below-threshold drag (state is reset)", () => {
+  it("does not carry touchedElements from a failed drag into the next swipe", () => {
     const el = mount({ pointerEvents: false, thresholds: { swipeThreshold: 50 } });
-    const events: string[] = [];
-    el.addEventListener("tap", () => events.push("tap"));
-    el.addEventListener("swipe", () => events.push("swipe"));
+    let touchedCount = -1;
+    el.addEventListener("swipe", (e: Event) => {
+      touchedCount = (e as CustomEvent).detail.touchedElements.length;
+    });
 
     const start = createMockTouch(100, 100, 0);
     el.dispatchEvent(createMockTouchEvent("touchstart", [start], [start]));
@@ -696,11 +697,13 @@ describe("Gesture lifecycle bugs", () => {
     el.dispatchEvent(createMockTouchEvent("touchmove", [mid], [mid]));
     el.dispatchEvent(createMockTouchEvent("touchend", [], [mid]));
 
-    const tap = createMockTouch(200, 200, 0);
-    el.dispatchEvent(createMockTouchEvent("touchstart", [tap], [tap]));
-    el.dispatchEvent(createMockTouchEvent("touchend", [], [tap]));
+    const swipeStart = createMockTouch(10, 10, 0);
+    el.dispatchEvent(createMockTouchEvent("touchstart", [swipeStart], [swipeStart]));
+    const swipeEnd = createMockTouch(120, 10, 0);
+    el.dispatchEvent(createMockTouchEvent("touchmove", [swipeEnd], [swipeEnd]));
+    el.dispatchEvent(createMockTouchEvent("touchend", [], [swipeEnd]));
 
-    expect(events).toEqual(["tap"]);
+    expect(touchedCount).toBe(1);
   });
 
   it("does not suppress native gestures when touchAction is false or a pan value", () => {
@@ -711,7 +714,7 @@ describe("Gesture lifecycle bugs", () => {
     expect(shouldSuppressNativeGestures("manipulation")).toBe(false);
   });
 
-  it("does not emit a completed gesture on touchcancel", () => {
+  it("does not emit hold after touchcancel clears the session", async () => {
     const el = mount({
       pointerEvents: false,
       thresholds: { holdMinTime: 30, tapMaxTime: 20, pressMinTime: 20 },
@@ -724,6 +727,7 @@ describe("Gesture lifecycle bugs", () => {
     const start = createMockTouch(100, 100, 0);
     el.dispatchEvent(createMockTouchEvent("touchstart", [start], [start]));
     el.dispatchEvent(createMockTouchEvent("touchcancel", [], [start]));
+    await new Promise((resolve) => setTimeout(resolve, 50));
 
     expect(events).toEqual([]);
   });
