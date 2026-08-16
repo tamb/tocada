@@ -210,6 +210,26 @@ describe("detectCircularDirection", () => {
     expect(detectCircularDirection(path, 90)).toBe("counterclockwise");
   });
 
+  it("detects a jittery upward CCW scoop that would otherwise look like swipeup", () => {
+    const path: ITouchPoint[] = [];
+    const centerX = 100;
+    const centerY = 110;
+    const radius = 90;
+    for (let i = 0; i <= 20; i++) {
+      const t = i / 20;
+      const angle = Math.PI / 2 - t * Math.PI;
+      path.push({
+        x: centerX + radius * Math.cos(angle) + Math.sin(i * 1.7) * 4,
+        y: centerY + radius * Math.sin(angle) + Math.cos(i * 1.3) * 4,
+        time: i * 20,
+      });
+    }
+    const { totalArc, netArc } = calculateCumulativeArc(path);
+    const consistency = totalArc > 0 ? Math.abs(netArc) / totalArc : 0;
+    expect(consistency).toBeLessThan(0.45);
+    expect(detectCircularDirection(path, 90)).toBe("counterclockwise");
+  });
+
   it("should return null if arc is below minimum threshold", () => {
     // Small arc that doesn't meet 90 degree minimum
     const smallArcPath: ITouchPoint[] = [];
