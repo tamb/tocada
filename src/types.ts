@@ -60,7 +60,8 @@ export interface ITocadaOptions {
    * When true (default), listens with Pointer Events (pointerdown / pointermove / pointerup / pointercancel)
    * for mouse, pen, and touch via the unified pointer model. Set to `false` for legacy TouchEvent-only input.
    * Do not attach both pipelines to the same element (double events).
-   * Pointer move listeners use `{ passive: false }` so preventDefault can block native scrolling while tracking.
+   * Pointer and touch move listeners use `{ passive: false }` so preventDefault can block native scrolling while tracking.
+   * preventDefault is skipped when {@link ITocadaOptions.touchAction} is `false` or a value other than `"none"`.
    */
   pointerEvents?: boolean;
   /**

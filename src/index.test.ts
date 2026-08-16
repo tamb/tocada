@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import Tocada, { useTouchEvents, usePointerEvents, DEFAULT_THRESHOLDS } from "./index";
+import Tocada, {
+  useTouchEvents,
+  usePointerEvents,
+  DEFAULT_THRESHOLDS,
+  shouldSuppressNativeGestures,
+} from "./index";
 
 describe("useTouchEvents", () => {
   it("returns Tocada instance wired to TouchEvent pipeline only", () => {
@@ -74,7 +79,7 @@ describe("Input pipeline selection", () => {
     const { types, restore } = spyListenerTypes(el);
     const t = useTouchEvents(el);
     restore();
-    expect(types).toEqual(["touchstart", "touchmove", "touchend"]);
+    expect(types).toEqual(["touchstart", "touchmove", "touchend", "touchcancel"]);
     t.destroy();
     document.body.removeChild(el);
   });
@@ -85,7 +90,7 @@ describe("Input pipeline selection", () => {
     const { types, restore } = spyListenerTypes(el);
     const t = new Tocada(el, { pointerEvents: false });
     restore();
-    expect(types).toEqual(["touchstart", "touchmove", "touchend"]);
+    expect(types).toEqual(["touchstart", "touchmove", "touchend", "touchcancel"]);
     t.destroy();
     document.body.removeChild(el);
   });
@@ -235,7 +240,7 @@ function createMockTouch(clientX: number, clientY: number, identifier: number = 
 
 // Helper function to create a mock TouchEvent
 function createMockTouchEvent(
-  type: "touchstart" | "touchmove" | "touchend",
+  type: "touchstart" | "touchmove" | "touchend" | "touchcancel",
   touches: Touch[],
   changedTouches: Touch[]
 ): TouchEvent {
@@ -541,5 +546,239 @@ describe("Gesture Event Priority (TouchEvent pipeline)", () => {
     expect(events).not.toContain("spread");
 
     customTocada.destroy();
+  });
+});
+
+describe("Gesture lifecycle bugs", () => {
+  let element: HTMLElement;
+  let tocada: Tocada;
+
+  afterEach(() => {
+    tocada?.destroy();
+    if (element?.parentNode) {
+      document.body.removeChild(element);
+    }
+  });
+
+  function mount(options: ConstructorParameters<typeof Tocada>[1] = { pointerEvents: false }) {
+    element = document.createElement("div");
+    document.body.appendChild(element);
+    tocada = new Tocada(element, options);
+    return element;
+  }
+
+  it("does not fire pinch when two fingers tap without moving (touch pipeline)", () => {
+    const el = mount({ pointerEvents: false });
+    const events: string[] = [];
+    el.addEventListener("pinch", () => events.push("pinch"));
+    el.addEventListener("spread", () => events.push("spread"));
+
+    const t1 = createMockTouch(100, 100, 0);
+    const t2 = createMockTouch(200, 100, 1);
+    el.dispatchEvent(createMockTouchEvent("touchstart", [t1, t2], [t1, t2]));
+    el.dispatchEvent(createMockTouchEvent("touchend", [], [t1, t2]));
+
+    expect(events).not.toContain("pinch");
+    expect(events).not.toContain("spread");
+  });
+
+  it("does not fire pinch when two pointers tap without moving", () => {
+    const el = mount({ pointerEvents: true });
+    const events: string[] = [];
+    el.addEventListener("pinch", () => events.push("pinch"));
+    el.addEventListener("spread", () => events.push("spread"));
+
+    el.dispatchEvent(createMockPointerEvent("pointerdown", 1, 100, 100));
+    el.dispatchEvent(createMockPointerEvent("pointerdown", 2, 200, 100));
+    el.dispatchEvent(createMockPointerEvent("pointerup", 1, 100, 100, { buttons: 1 }));
+    el.dispatchEvent(createMockPointerEvent("pointerup", 2, 200, 100, { buttons: 0 }));
+
+    expect(events).not.toContain("pinch");
+    expect(events).not.toContain("spread");
+  });
+
+  it("fires gesture only once when three fingers lift one at a time", () => {
+    const el = mount({ pointerEvents: false });
+    let gestureCount = 0;
+    el.addEventListener("gesture", () => {
+      gestureCount += 1;
+    });
+
+    const a = createMockTouch(80, 100, 0);
+    const b = createMockTouch(160, 100, 1);
+    const c = createMockTouch(240, 100, 2);
+
+    el.dispatchEvent(createMockTouchEvent("touchstart", [a], [a]));
+    el.dispatchEvent(createMockTouchEvent("touchstart", [a, b], [b]));
+    el.dispatchEvent(createMockTouchEvent("touchstart", [a, b, c], [c]));
+
+    el.dispatchEvent(createMockTouchEvent("touchend", [b, c], [a]));
+    el.dispatchEvent(createMockTouchEvent("touchend", [c], [b]));
+    el.dispatchEvent(createMockTouchEvent("touchend", [], [c]));
+
+    expect(gestureCount).toBe(1);
+  });
+
+  it("fires gesture only once when three pointers lift one at a time", () => {
+    const el = mount({ pointerEvents: true });
+    let gestureCount = 0;
+    el.addEventListener("gesture", () => {
+      gestureCount += 1;
+    });
+
+    el.dispatchEvent(createMockPointerEvent("pointerdown", 1, 80, 100));
+    el.dispatchEvent(createMockPointerEvent("pointerdown", 2, 160, 100));
+    el.dispatchEvent(createMockPointerEvent("pointerdown", 3, 240, 100));
+
+    el.dispatchEvent(createMockPointerEvent("pointerup", 1, 80, 100, { buttons: 1 }));
+    el.dispatchEvent(createMockPointerEvent("pointerup", 2, 160, 100, { buttons: 1 }));
+    el.dispatchEvent(createMockPointerEvent("pointerup", 3, 240, 100, { buttons: 0 }));
+
+    expect(gestureCount).toBe(1);
+  });
+
+  it("does not fire hold while the contact is already swiping", async () => {
+    const el = mount({
+      pointerEvents: false,
+      thresholds: { holdMinTime: 40, tapMaxTime: 20, pressMinTime: 20, swipeThreshold: 40 },
+    });
+    const events: string[] = [];
+    el.addEventListener("hold", () => events.push("hold"));
+    el.addEventListener("swipe", () => events.push("swipe"));
+    el.addEventListener("swiperight", () => events.push("swiperight"));
+
+    const start = createMockTouch(100, 100, 0);
+    el.dispatchEvent(createMockTouchEvent("touchstart", [start], [start]));
+    const moved = createMockTouch(180, 100, 0);
+    el.dispatchEvent(createMockTouchEvent("touchmove", [moved], [moved]));
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    el.dispatchEvent(createMockTouchEvent("touchend", [], [moved]));
+
+    expect(events).not.toContain("hold");
+    expect(events).toContain("swipe");
+  });
+
+  it("emits hold on lift when the press lasted past holdMinTime and the timer was cleared", () => {
+    const el = mount({
+      pointerEvents: false,
+      thresholds: { holdMinTime: 500, tapMaxTime: 200, pressMinTime: 200 },
+    });
+    const events: string[] = [];
+    el.addEventListener("hold", () => events.push("hold"));
+    el.addEventListener("tap", () => events.push("tap"));
+    el.addEventListener("press", () => events.push("press"));
+
+    const start = createMockTouch(120, 120, 0);
+    const originalNow = Date.now;
+    let now = originalNow();
+    Date.now = () => now;
+
+    try {
+      el.dispatchEvent(createMockTouchEvent("touchstart", [start], [start]));
+      now += 600;
+      el.dispatchEvent(createMockTouchEvent("touchend", [], [start]));
+    } finally {
+      Date.now = originalNow;
+    }
+
+    expect(events).toEqual(["hold"]);
+  });
+
+  it("does not carry touchedElements from a failed drag into the next swipe", () => {
+    const el = mount({ pointerEvents: false, thresholds: { swipeThreshold: 50 } });
+    const hit = document.createElement("span");
+    el.appendChild(hit);
+    const originalFromPoint = document.elementFromPoint;
+    const originalFromPoints = document.elementsFromPoint;
+    document.elementFromPoint = () => hit;
+    document.elementsFromPoint = () => [hit];
+
+    const swipeLengths: number[] = [];
+    el.addEventListener("swipe", (e: Event) => {
+      swipeLengths.push((e as CustomEvent).detail.touchedElements.length);
+    });
+
+    const fireSwipe = (y: number) => {
+      const swipeStart = createMockTouch(10, y, 0);
+      el.dispatchEvent(createMockTouchEvent("touchstart", [swipeStart], [swipeStart]));
+      const swipeEnd = createMockTouch(120, y, 0);
+      el.dispatchEvent(createMockTouchEvent("touchmove", [swipeEnd], [swipeEnd]));
+      el.dispatchEvent(createMockTouchEvent("touchend", [], [swipeEnd]));
+    };
+
+    try {
+      fireSwipe(10);
+
+      const start = createMockTouch(100, 100, 0);
+      el.dispatchEvent(createMockTouchEvent("touchstart", [start], [start]));
+      const mid = createMockTouch(130, 100, 0);
+      el.dispatchEvent(createMockTouchEvent("touchmove", [mid], [mid]));
+      el.dispatchEvent(createMockTouchEvent("touchend", [], [mid]));
+
+      fireSwipe(20);
+    } finally {
+      document.elementFromPoint = originalFromPoint;
+      document.elementsFromPoint = originalFromPoints;
+    }
+
+    expect(swipeLengths).toHaveLength(2);
+    expect(swipeLengths[1]).toBe(swipeLengths[0]);
+  });
+
+  it("does not suppress native gestures when touchAction is false or a pan value", () => {
+    expect(shouldSuppressNativeGestures(undefined)).toBe(true);
+    expect(shouldSuppressNativeGestures("none")).toBe(true);
+    expect(shouldSuppressNativeGestures(false)).toBe(false);
+    expect(shouldSuppressNativeGestures("pan-y")).toBe(false);
+    expect(shouldSuppressNativeGestures("manipulation")).toBe(false);
+  });
+
+  it("does not emit hold after touchcancel clears the session", async () => {
+    const el = mount({
+      pointerEvents: false,
+      thresholds: { holdMinTime: 30, tapMaxTime: 20, pressMinTime: 20 },
+    });
+    const events: string[] = [];
+    el.addEventListener("tap", () => events.push("tap"));
+    el.addEventListener("hold", () => events.push("hold"));
+    el.addEventListener("swipe", () => events.push("swipe"));
+
+    const start = createMockTouch(100, 100, 0);
+    el.dispatchEvent(createMockTouchEvent("touchstart", [start], [start]));
+    el.dispatchEvent(createMockTouchEvent("touchcancel", [], [start]));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(events).toEqual([]);
+  });
+
+  it("does not emit a completed gesture on pointercancel", () => {
+    const el = mount({ pointerEvents: true });
+    const events: string[] = [];
+    el.addEventListener("tap", () => events.push("tap"));
+    el.addEventListener("swipe", () => events.push("swipe"));
+    el.addEventListener("swiperight", () => events.push("swiperight"));
+
+    el.dispatchEvent(createMockPointerEvent("pointerdown", 1, 100, 100));
+    el.dispatchEvent(createMockPointerEvent("pointermove", 1, 200, 100));
+    el.dispatchEvent(createMockPointerEvent("pointercancel", 1, 200, 100, { buttons: 0 }));
+
+    expect(events).toEqual([]);
+  });
+
+  it("registers a touchcancel listener in the touch pipeline", () => {
+    element = document.createElement("div");
+    document.body.appendChild(element);
+    const types: string[] = [];
+    const orig = element.addEventListener.bind(element);
+    element.addEventListener = (
+      type: string,
+      listener: EventListenerOrEventListenerObject,
+      options?: boolean | AddEventListenerOptions
+    ) => {
+      types.push(type);
+      return orig(type, listener, options as never);
+    };
+    tocada = new Tocada(element, { pointerEvents: false });
+    expect(types).toContain("touchcancel");
   });
 });
