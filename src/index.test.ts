@@ -686,24 +686,43 @@ describe("Gesture lifecycle bugs", () => {
 
   it("does not carry touchedElements from a failed drag into the next swipe", () => {
     const el = mount({ pointerEvents: false, thresholds: { swipeThreshold: 50 } });
-    let touchedCount = -1;
+    const hit = document.createElement("span");
+    el.appendChild(hit);
+    const originalFromPoint = document.elementFromPoint;
+    const originalFromPoints = document.elementsFromPoint;
+    document.elementFromPoint = () => hit;
+    document.elementsFromPoint = () => [hit];
+
+    const swipeLengths: number[] = [];
     el.addEventListener("swipe", (e: Event) => {
-      touchedCount = (e as CustomEvent).detail.touchedElements.length;
+      swipeLengths.push((e as CustomEvent).detail.touchedElements.length);
     });
 
-    const start = createMockTouch(100, 100, 0);
-    el.dispatchEvent(createMockTouchEvent("touchstart", [start], [start]));
-    const mid = createMockTouch(130, 100, 0);
-    el.dispatchEvent(createMockTouchEvent("touchmove", [mid], [mid]));
-    el.dispatchEvent(createMockTouchEvent("touchend", [], [mid]));
+    const fireSwipe = (y: number) => {
+      const swipeStart = createMockTouch(10, y, 0);
+      el.dispatchEvent(createMockTouchEvent("touchstart", [swipeStart], [swipeStart]));
+      const swipeEnd = createMockTouch(120, y, 0);
+      el.dispatchEvent(createMockTouchEvent("touchmove", [swipeEnd], [swipeEnd]));
+      el.dispatchEvent(createMockTouchEvent("touchend", [], [swipeEnd]));
+    };
 
-    const swipeStart = createMockTouch(10, 10, 0);
-    el.dispatchEvent(createMockTouchEvent("touchstart", [swipeStart], [swipeStart]));
-    const swipeEnd = createMockTouch(120, 10, 0);
-    el.dispatchEvent(createMockTouchEvent("touchmove", [swipeEnd], [swipeEnd]));
-    el.dispatchEvent(createMockTouchEvent("touchend", [], [swipeEnd]));
+    try {
+      fireSwipe(10);
 
-    expect(touchedCount).toBe(1);
+      const start = createMockTouch(100, 100, 0);
+      el.dispatchEvent(createMockTouchEvent("touchstart", [start], [start]));
+      const mid = createMockTouch(130, 100, 0);
+      el.dispatchEvent(createMockTouchEvent("touchmove", [mid], [mid]));
+      el.dispatchEvent(createMockTouchEvent("touchend", [], [mid]));
+
+      fireSwipe(20);
+    } finally {
+      document.elementFromPoint = originalFromPoint;
+      document.elementsFromPoint = originalFromPoints;
+    }
+
+    expect(swipeLengths).toHaveLength(2);
+    expect(swipeLengths[1]).toBe(swipeLengths[0]);
   });
 
   it("does not suppress native gestures when touchAction is false or a pan value", () => {

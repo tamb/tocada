@@ -233,7 +233,9 @@ export default class Tocada {
     this.startingElement = elementAtPoint(this.startX, this.startY);
     this.holdFired = false;
 
-    this.touchedElements.push(this.startingElement);
+    if (this.startingElement) {
+      this.touchedElements.push(this.startingElement);
+    }
     this.touchPath = [{ x: this.startX, y: this.startY, time: this.startTime }];
 
     if (this.useHighPrecision) {
