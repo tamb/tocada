@@ -62,7 +62,7 @@
   ],
   "devDependencies": {
     "@happy-dom/global-registrator": "^20.0.10",
-    "concurrently": "^9.2.1",
+    "concurrently": "^10.0.5",
     "typescript": "^7.0.2"
   }
 }
