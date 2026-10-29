@@ -756,13 +756,20 @@ describe("Gesture lifecycle bugs", () => {
     expect(selectPrevented).toBe(true);
   });
 
-  it("emits swipecounterclockwise for an upward CCW scoop, not swipeup", () => {
+  it("emits swipe then swipecounterclockwise for an upward CCW scoop, not swipeup", () => {
     const el = mount({ pointerEvents: false, thresholds: { swipeThreshold: 50, circularSwipeMinArc: 90 } });
     const events: string[] = [];
-    el.addEventListener("swipe", () => events.push("swipe"));
-    el.addEventListener("swipeup", () => events.push("swipeup"));
-    el.addEventListener("swipecounterclockwise", () => events.push("swipecounterclockwise"));
-    el.addEventListener("swipeclockwise", () => events.push("swipeclockwise"));
+    for (const name of [
+      "swipe",
+      "swipeup",
+      "swipedown",
+      "swipeleft",
+      "swiperight",
+      "swipeclockwise",
+      "swipecounterclockwise",
+    ]) {
+      el.addEventListener(name, () => events.push(name));
+    }
 
     const cx = 100;
     const cy = 110;
@@ -786,9 +793,106 @@ describe("Gesture lifecycle bugs", () => {
     const last = createMockTouch(points[points.length - 1]!.x, points[points.length - 1]!.y, 0);
     el.dispatchEvent(createMockTouchEvent("touchend", [], [last]));
 
+    expect(events[0]).toBe("swipe");
     expect(events).toContain("swipecounterclockwise");
     expect(events).not.toContain("swipeup");
-    expect(events).not.toContain("swipe");
+    expect(events).not.toContain("swipedown");
+    expect(events).not.toContain("swipeleft");
+    expect(events).not.toContain("swiperight");
+    expect(events).not.toContain("swipeclockwise");
+  });
+
+  it("emits swipe then swipeclockwise for a closed loop, not a tap", () => {
+    const el = mount({ pointerEvents: false, thresholds: { swipeThreshold: 50, circularSwipeMinArc: 90 } });
+    const events: string[] = [];
+    for (const name of [
+      "tap",
+      "press",
+      "hold",
+      "swipe",
+      "swipeup",
+      "swipedown",
+      "swipeleft",
+      "swiperight",
+      "swipeclockwise",
+      "swipecounterclockwise",
+    ]) {
+      el.addEventListener(name, () => events.push(name));
+    }
+
+    const cx = 200;
+    const cy = 200;
+    const r = 80;
+    const points: Array<{ x: number; y: number }> = [];
+    for (let i = 0; i <= 24; i++) {
+      const angle = (i / 24) * Math.PI * 2;
+      points.push({
+        x: cx + r * Math.cos(angle),
+        y: cy + r * Math.sin(angle),
+      });
+    }
+
+    const first = createMockTouch(points[0]!.x, points[0]!.y, 0);
+    el.dispatchEvent(createMockTouchEvent("touchstart", [first], [first]));
+    for (let i = 1; i < points.length; i++) {
+      const t = createMockTouch(points[i]!.x, points[i]!.y, 0);
+      el.dispatchEvent(createMockTouchEvent("touchmove", [t], [t]));
+    }
+    const last = points[points.length - 1]!;
+    const end = createMockTouch(last.x, last.y, 0);
+    el.dispatchEvent(createMockTouchEvent("touchend", [], [end]));
+
+    expect(events).toEqual(["swipe", "swipeclockwise"]);
+  });
+
+  it("emits swipe before swipecounterclockwise on the pointer pipeline", () => {
+    const el = mount({ pointerEvents: true, thresholds: { swipeThreshold: 50, circularSwipeMinArc: 90 } });
+    const events: string[] = [];
+    el.addEventListener("tap", () => events.push("tap"));
+    el.addEventListener("swipe", () => events.push("swipe"));
+    el.addEventListener("swipeup", () => events.push("swipeup"));
+    el.addEventListener("swipecounterclockwise", () => events.push("swipecounterclockwise"));
+
+    const cx = 180;
+    const cy = 180;
+    const r = 70;
+    const points: Array<{ x: number; y: number }> = [];
+    for (let i = 0; i <= 16; i++) {
+      const angle = -((i / 16) * Math.PI);
+      points.push({
+        x: cx + r * Math.cos(angle),
+        y: cy + r * Math.sin(angle),
+      });
+    }
+
+    el.dispatchEvent(createMockPointerEvent("pointerdown", 1, points[0]!.x, points[0]!.y));
+    for (let i = 1; i < points.length; i++) {
+      el.dispatchEvent(createMockPointerEvent("pointermove", 1, points[i]!.x, points[i]!.y));
+    }
+    const last = points[points.length - 1]!;
+    el.dispatchEvent(createMockPointerEvent("pointerup", 1, last.x, last.y, { buttons: 0 }));
+
+    expect(events[0]).toBe("swipe");
+    expect(events).toContain("swipecounterclockwise");
+    expect(events).not.toContain("swipeup");
+    expect(events).not.toContain("tap");
+  });
+
+  it("still emits swipe then swiperight for a straight swipe", () => {
+    const el = mount({ pointerEvents: false, thresholds: { swipeThreshold: 50 } });
+    const events: string[] = [];
+    el.addEventListener("swipe", () => events.push("swipe"));
+    el.addEventListener("swiperight", () => events.push("swiperight"));
+    el.addEventListener("swipeclockwise", () => events.push("swipeclockwise"));
+    el.addEventListener("swipecounterclockwise", () => events.push("swipecounterclockwise"));
+
+    const start = createMockTouch(20, 100, 0);
+    el.dispatchEvent(createMockTouchEvent("touchstart", [start], [start]));
+    const end = createMockTouch(160, 104, 0);
+    el.dispatchEvent(createMockTouchEvent("touchmove", [end], [end]));
+    el.dispatchEvent(createMockTouchEvent("touchend", [], [end]));
+
+    expect(events).toEqual(["swipe", "swiperight"]);
   });
 
   it("does not emit hold after touchcancel clears the session", async () => {
