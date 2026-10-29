@@ -421,8 +421,44 @@ export default class Tocada {
     const startCoords: ICoords = { x: this.startX, y: this.startY };
     const endCoords: ICoords = { x: clientX, y: clientY };
 
-    // Check for tap/press/hold (low movement)
-    const isTapValid = isTapMovementValid(this.startX, this.startY, clientX, clientY);
+    const pathForCircular = prepareTouchPathForCircularSwipe(
+      this.touchPath,
+      clientX,
+      clientY,
+      endTime
+    );
+
+    // Classify the arc before the tap shortcut. A loop that ends inside the
+    // tap slop is still a circular swipe, not a tap.
+    let circularDetails: ICircularSwipeEventDetails | null = null;
+    if (pathForCircular.length >= 3) {
+      const circularDirection = detectCircularDirection(
+        pathForCircular,
+        this.thresholds.circularSwipeMinArc
+      );
+
+      if (circularDirection) {
+        const circularInfo = getCircularSwipeInfo(pathForCircular);
+        circularDetails = {
+          direction: circularDirection,
+          arc: circularInfo.arc,
+          touchPath: this.touchPath,
+          touchedElements: Array.from(new Set(this.touchedElements)),
+        };
+
+        if (this.useHighPrecision) {
+          const touchedPathElements = this.getTouchedPathElements(this.touchPath);
+          circularDetails.touchedPathElements = touchedPathElements;
+          circularDetails.interpolatedTouchedElements = this.interpolatedTouchedElements;
+          circularDetails.derivedTouchedElements = this.getDerivedTouchedElements(touchedPathElements);
+        }
+      }
+    }
+
+    // Tap/press/hold only for a short lift. A recognized circular swipe is not a tap
+    // even when the finger comes back to where it started.
+    const isTapValid =
+      !circularDetails && isTapMovementValid(this.startX, this.startY, clientX, clientY);
 
     if (isTapValid && !this.holdFired) {
       const tapType = classifyTapGesture(duration, this.thresholds);
@@ -482,47 +518,6 @@ export default class Tocada {
       return;
     }
 
-    const pathForCircular = prepareTouchPathForCircularSwipe(
-      this.touchPath,
-      clientX,
-      clientY,
-      endTime
-    );
-
-    // Check for circular swipe (denoised path + lift sample so arc detection matches real strokes)
-    if (pathForCircular.length >= 3) {
-      const circularDirection = detectCircularDirection(
-        pathForCircular,
-        this.thresholds.circularSwipeMinArc
-      );
-
-      if (circularDirection) {
-        const circularInfo = getCircularSwipeInfo(pathForCircular);
-        const circularDetails: ICircularSwipeEventDetails = {
-          direction: circularDirection,
-          arc: circularInfo.arc,
-          touchPath: this.touchPath,
-          touchedElements: Array.from(new Set(this.touchedElements)),
-        };
-
-        if (this.useHighPrecision) {
-          const touchedPathElements = this.getTouchedPathElements(this.touchPath);
-          circularDetails.touchedPathElements = touchedPathElements;
-          circularDetails.interpolatedTouchedElements = this.interpolatedTouchedElements;
-          circularDetails.derivedTouchedElements = this.getDerivedTouchedElements(touchedPathElements);
-        }
-
-        if (circularDirection === "clockwise") {
-          this.dispatchCircularSwipeEvent("swipeclockwise", circularDetails);
-        } else {
-          this.dispatchCircularSwipeEvent("swipecounterclockwise", circularDetails);
-        }
-
-        this.reset();
-        return;
-      }
-    }
-
     const swipeAnalysis = analyzeSwipe(
       startCoords,
       endCoords,
@@ -530,7 +525,11 @@ export default class Tocada {
       this.thresholds.swipeThreshold
     );
 
-    if (swipeAnalysis.isSwipe && swipeAnalysis.direction) {
+    // A circular swipe is still a swipe. Emit the generic event even when the
+    // chord is shorter than swipeThreshold (a loop that returns home). Do not
+    // also emit swipeup/down/left/right: net displacement of a curve is not a
+    // straight direction.
+    if (circularDetails || (swipeAnalysis.isSwipe && swipeAnalysis.direction)) {
       this.endPressure = pressure;
       const endingElement = elementAtPoint(clientX, clientY);
 
@@ -555,8 +554,18 @@ export default class Tocada {
 
       this.dispatchSwipeEvent("swipe", detail);
 
-      const gestureType = getSwipeGestureType(swipeAnalysis.direction) as TGestureType;
-      this.dispatchSwipeEvent(gestureType, detail);
+      if (!circularDetails && swipeAnalysis.direction) {
+        const gestureType = getSwipeGestureType(swipeAnalysis.direction) as TGestureType;
+        this.dispatchSwipeEvent(gestureType, detail);
+      }
+    }
+
+    if (circularDetails) {
+      const circularEvent =
+        circularDetails.direction === "clockwise"
+          ? "swipeclockwise"
+          : "swipecounterclockwise";
+      this.dispatchCircularSwipeEvent(circularEvent, circularDetails);
     }
 
     // Always clear session state so a no-match drag cannot leak into the next gesture.

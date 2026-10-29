@@ -1,6 +1,6 @@
 {
   "name": "tocada",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "Pointer and touch gestures with ease! (Inspired by the wonderful Tocca.js library). Written in Typescript with love",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -22,7 +22,7 @@
     "build:pack": "bun run build && npm pack",
     "build:watch": "concurrently \"tsc --watch\" \"bun build.js --watch\"",
     "demo": "bun clean.ts && bun run test && bun run build && bun run demo:gh-pages",
-    "demo:gh-pages": "cd gh-pages && bun install --clean && bun run dev:tunnel",
+    "demo:gh-pages": "cd gh-pages && bun install && bun run dev:tunnel",
     "safe-publish": "bun run test && bun run build && npm publish",
     "serve": "bunx serve ./",
     "test": "bun test",
@@ -61,8 +61,8 @@
     "typescript"
   ],
   "devDependencies": {
-    "@happy-dom/global-registrator": "^20.0.10",
-    "concurrently": "^10.0.5",
+    "@happy-dom/global-registrator": "^20.14.6",
+    "concurrently": "^10.0.6",
     "typescript": "^7.0.2"
   }
 }

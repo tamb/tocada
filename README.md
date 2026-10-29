@@ -47,7 +47,7 @@ For **TouchEvent-only** input (legacy mobile pipelines), use `useTouchEvents` in
 | `doubletap` | Two taps within 300ms |
 | `press` | Touch held 200-500ms |
 | `hold` | Touch held > 500ms |
-| `swipe` | Fires before directional swipe events (same gesture also emits `swipeup` / `swipedown` / etc.) |
+| `swipe` | Fires before every other swipe event on the same gesture: straight directions (`swipeup` / `swipedown` / `swipeleft` / `swiperight`) and circular directions (`swipeclockwise` / `swipecounterclockwise`) |
 | `swipeup` | Swipe in upward direction |
 | `swipedown` | Swipe in downward direction |
 | `swipeleft` | Swipe in left direction |
@@ -169,6 +169,8 @@ Each event type provides a `detail` object with relevant data.
 ### Circular Swipe Events (`swipeclockwise`, `swipecounterclockwise`)
 
 Detection uses sampled move points plus the **lift position** (pointer up / touch end), and **denoises** dense or jittery input so direction stays stable. Tune sensitivity with `thresholds.circularSwipeMinArc` (default `90` degrees).
+
+A circular swipe also emits `swipe` first, including when the stroke loops back near its start (that lift is not a tap). It does not also emit `swipeup`, `swipedown`, `swipeleft`, or `swiperight` — the curve's net displacement is not a straight swipe. The `swipe` detail still describes start-to-end displacement; arc length is on the circular event.
 
 ```javascript
 {
